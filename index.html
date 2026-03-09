@@ -9,80 +9,534 @@
 <meta name="theme-color" content="#07070d"/>
 <title>Accountability</title>
 <style>
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  body { margin: 0; background: #07070d; font-family: Georgia, serif; }
-  #root { min-height: 100vh; }
-  input[type=number]::-webkit-inner-spin-button,
-  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
+body{background:#07070d;font-family:Georgia,serif;color:#f0f0f5;min-height:100vh;}
+input,button{font-family:Georgia,serif;}
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;}
+input{-webkit-appearance:none;appearance:none;}
+:root{
+  --bg:#07070d;--surface:#111118;--card:#16161f;--border:#252535;
+  --accent:#FF6B35;--gold:#FFD700;--green:#00E676;--text:#f0f0f5;--muted:#6b6b85;
+  --me:#FF6B35;--partner:#E91E8C;
+}
+#app{max-width:480px;margin:0 auto;min-height:100vh;position:relative;padding-bottom:80px;}
+.header{background:linear-gradient(135deg,var(--surface),#0d0d1a);border-bottom:1px solid var(--border);
+  padding:max(env(safe-area-inset-top),16px) 20px 12px;position:sticky;top:0;z-index:100;}
+.header-sub{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
+.header-row{display:flex;justify-content:space-between;align-items:center;}
+.header-title{font-size:18px;font-weight:bold;}
+.header-score{font-size:13px;}
+.content{padding:16px 16px 0;}
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;
+  background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:100;
+  padding-bottom:env(safe-area-inset-bottom,0px);}
+.nav button{flex:1;padding:10px 4px;background:none;border:none;border-bottom:2px solid transparent;
+  color:var(--muted);font-size:11px;cursor:pointer;letter-spacing:.5px;text-transform:uppercase;transition:color .2s;}
+.nav button.active{color:var(--text);border-bottom-color:var(--accent);}
+.nav button .icon{font-size:18px;display:block;margin-bottom:2px;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px;}
+.label{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:14px;}
+input.field{background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);
+  padding:10px 14px;font-size:14px;width:100%;outline:none;}
+.btn{border:none;border-radius:12px;padding:12px 24px;font-size:14px;cursor:pointer;font-weight:bold;
+  background:var(--accent);color:#fff;}
+.btn-gold{background:var(--gold);color:#000;}
+.btn-outline{background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:12px;
+  padding:12px 24px;font-size:14px;cursor:pointer;}
+.btn-full{width:100%;}
+.btn-sm{padding:8px 14px;font-size:12px;}
+.pill{padding:6px 16px;border-radius:20px;border:1.5px solid var(--border);background:transparent;
+  color:var(--muted);cursor:pointer;font-size:13px;transition:all .2s;}
+.pill.active-me{border-color:var(--me);background:#FF6B3522;color:var(--me);font-weight:bold;}
+.pill.active-partner{border-color:var(--partner);background:#E91E8C22;color:var(--partner);font-weight:bold;}
+.habit-row{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+.habit-btn{width:48px;height:48px;border-radius:14px;border:2px solid var(--border);background:transparent;
+  color:var(--muted);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:all .2s;}
+.habit-btn.done{border-color:var(--green);background:#00E67622;color:var(--green);}
+.progress-bar{background:var(--surface);border-radius:8px;height:8px;overflow:hidden;margin-bottom:6px;}
+.progress-fill{height:100%;border-radius:8px;transition:width .5s;}
+.modal-overlay{position:fixed;inset:0;background:#000000bb;z-index:1000;display:flex;align-items:flex-end;justify-content:center;}
+.modal-box{background:var(--card);border-radius:24px 24px 0 0;padding:24px;width:100%;max-width:480px;
+  border:1px solid var(--border);border-bottom:none;max-height:85vh;overflow-y:auto;}
+.modal-title{font-size:16px;font-weight:bold;margin-bottom:20px;}
+.modal-field{margin-bottom:12px;}
+.modal-field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;}
+.modal-row{display:flex;gap:10px;}
+.row{display:flex;gap:8px;margin-bottom:16px;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.cal-day{aspect-ratio:1;border-radius:8px;background:var(--surface);border:1px solid transparent;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;}
+.cal-day.today{border-color:var(--accent);}
+.cal-day.future{background:transparent;color:var(--border);}
+.cal-day.both{background:#00E67633;}
+.cal-day.one{background:#FF6B3522;}
+.dots{display:flex;gap:2px;margin-top:2px;}
+.dot{width:4px;height:4px;border-radius:50%;background:var(--border);}
+.month-pill{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:10px;
+  padding:6px 12px;font-size:12px;cursor:pointer;white-space:nowrap;}
+.month-pill.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+.streak-chip{background:var(--surface);border-radius:8px;padding:4px 10px;font-size:12px;}
+.split{display:flex;gap:10px;}
+.split>div{flex:1;}
+.stat-box{flex:1;background:var(--surface);border-radius:10px;padding:10px 8px;text-align:center;}
+.stat-label{font-size:10px;color:var(--muted);margin-bottom:4px;}
+.stat-val{font-size:14px;font-weight:bold;}
+svg.chart{overflow:visible;width:100%;}
+.saved-row{margin-top:12px;padding:10px;background:var(--surface);border-radius:10px;font-size:13px;color:var(--muted);}
+.goal-card{text-align:center;padding:24px;}
+.goal-days{font-size:52px;font-weight:900;color:#9B6BFF;line-height:1;}
+.winner-card{border-radius:20px;padding:20px;margin-bottom:16px;text-align:center;}
+.score-num{font-size:28px;font-weight:900;}
+.hidden{display:none;}
+.months-row{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px;}
 </style>
 </head>
 <body>
-<div id="root"></div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-
-<script type="text/babel">
-const { useState, useEffect, useCallback, useRef } = React;
-
-const STORAGE_KEY = "accountability_v3";
-
-const DEFAULT_HABITS = [
-  { id: "gym", name: "Gym", icon: "🏋️", target: 30 },
-  { id: "steps", name: "10K Steps", icon: "👟", target: 30, isSteps: true },
-  { id: "calories", name: "Calories", icon: "🥗", target: 30 },
-];
-
-const DEFAULT_STATE = {
-  users: {
-    me: { name: "Tarek", color: "#FF6B35", emoji: "💪" },
-    partner: { name: "Wife", color: "#E91E8C", emoji: "✨" },
-  },
-  habits: DEFAULT_HABITS,
-  logs: {},
-  stepCounts: {},
-  weights: {},
-  goals: [{ id: "g1", name: "Trip to Japan 🇯🇵", date: "2025-05-15" }],
-  prizes: {},
-  settings: { calorieTarget: 2000, stepTarget: 10000 },
-};
-
-const C = {
-  bg: "#07070d", surface: "#111118", card: "#16161f", border: "#252535",
-  accent: "#FF6B35", gold: "#FFD700", green: "#00E676", text: "#f0f0f5", muted: "#6b6b85",
-};
-
-function getToday() { return new Date().toISOString().split("T")[0]; }
-function getMonthKey(date = new Date()) {
-  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}`;
-}
-function getDaysInMonth(y,m) { return new Date(y,m+1,0).getDate(); }
-function daysBetween(d1,d2) { return Math.ceil((new Date(d2)-new Date(d1))/86400000); }
-function getMonthDays(year,month) {
-  const days=[],total=getDaysInMonth(year,month);
-  for(let d=1;d<=total;d++) days.push(`${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`);
-  return days;
-}
-
-const IS = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, color:C.text, padding:"10px 14px", fontSize:14, fontFamily:"Georgia,serif", width:"100%", boxSizing:"border-box", outline:"none", WebkitAppearance:"none" };
-const CS = { background:C.card, border:`1px solid ${C.border}`, borderRadius:16, padding:16, marginBottom:12 };
-function BS(color=C.accent){ return { background:color, color:color===C.gold?"#000":"#fff", border:"none", borderRadius:12, padding:"12px 24px", fontSize:14, fontFamily:"Georgia,serif", cursor:"pointer", fontWeight:"bold" }; }
-const OBS = { background:"transparent", color:C.muted, border:`1px solid ${C.border}`, borderRadius:12, padding:"12px 24px", fontSize:14, fontFamily:"Georgia,serif", cursor:"pointer" };
-
-function Modal({title,children,onClose}){
-  return (
-    <div style={{position:"fixed",inset:0,background:"#000000bb",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div style={{background:C.card,borderRadius:"24px 24px 0 0",padding:24,width:"100%",maxWidth:480,border:`1px solid ${C.border}`,borderBottom:"none",maxHeight:"85vh",overflowY:"auto"}}>
-        <div style={{fontSize:16,fontWeight:"bold",marginBottom:20,color:C.text,fontFamily:"Georgia,serif"}}>{title}</div>
-        {children}
-      </div>
+<div id="app">
+  <div class="header">
+    <div class="header-sub">Accountability</div>
+    <div class="header-row">
+      <div class="header-title" id="hdr-title"></div>
+      <div class="header-score" id="hdr-score"></div>
     </div>
-  );
+  </div>
+  <div class="content" id="content"></div>
+  <nav class="nav" id="nav"></nav>
+</div>
+<div id="modals"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+const KEY = "acc_v3";
+const TABS = [{id:"today",label:"Today",icon:"☀️"},{id:"score",label:"Score",icon:"🏆"},
+              {id:"calendar",label:"Calendar",icon:"📅"},{id:"goals",label:"Goals",icon:"🎯"},
+              {id:"settings",label:"Settings",icon:"⚙️"}];
+
+const DEFAULT = {
+  users:{me:{name:"Tarek",color:"#FF6B35",emoji:"💪"},partner:{name:"Wife",color:"#E91E8C",emoji:"✨"}},
+  habits:[{id:"gym",name:"Gym",icon:"🏋️",target:30},{id:"steps",name:"10K Steps",icon:"👟",target:30,isSteps:true},{id:"calories",name:"Calories",icon:"🥗",target:30}],
+  logs:{},stepCounts:{},weights:{},
+  goals:[{id:"g1",name:"Trip to Japan 🇯🇵",date:"2025-05-15"}],
+  prizes:{},settings:{calorieTarget:2000,stepTarget:10000}
+};
+
+let S = DEFAULT, tab = "today", activeUser = "me";
+let curYear = new Date().getFullYear(), curMonth = new Date().getMonth();
+
+function load(){
+  try{const r=localStorage.getItem(KEY);if(r){const p=JSON.parse(r);S={...DEFAULT,...p,users:{...DEFAULT.users,...(p.users||{})},habits:p.habits||DEFAULT.habits,stepCounts:p.stepCounts||{},weights:p.weights||{},goals:p.goals||DEFAULT.goals,prizes:p.prizes||{},settings:{...DEFAULT.settings,...(p.settings||{})}};}}catch{}
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch{}}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function today(){return new Date().toISOString().split("T")[0];}
+function monthKey(y=new Date().getFullYear(),m=new Date().getMonth()){return`${y}-${String(m+1).padStart(2,"0")}`;}
+function daysInMonth(y,m){return new Date(y,m+1,0).getDate();}
+function daysBetween(d1,d2){return Math.ceil((new Date(d2)-new Date(d1))/86400000);}
+function monthDays(y,m){const days=[],t=daysInMonth(y,m);for(let d=1;d<=t;d++)days.push(`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`);return days;}
+function el(tag,cls,html){const e=document.createElement(tag);if(cls)e.className=cls;if(html!==undefined)e.innerHTML=html;return e;}
+function h(tag,attrs={},children=[]){
+  const e=document.createElement(tag);
+  Object.entries(attrs).forEach(([k,v])=>{
+    if(k==="style"&&typeof v==="object")Object.assign(e.style,v);
+    else if(k.startsWith("on"))e.addEventListener(k.slice(2).toLowerCase(),v);
+    else if(k==="class")e.className=v;
+    else e.setAttribute(k,v);
+  });
+  children.forEach(c=>{if(c)e.appendChild(typeof c==="string"?document.createTextNode(c):c);});
+  return e;
 }
 
-function WeightChart({entries,color}){
-  if(entries.length<2) return <div style={{textAlign:"center",color:C.muted,padding:"24px 0",fontSize:13}}>Log at least 2 weigh-ins to see your trend 📈</div>;
+function getUserScore(user,y,m){
+  let score=0;
+  monthDays(y,m).forEach(day=>S.habits.forEach(h=>{if(S.logs[`${user}|${day}|${h.id}`])score++;}));
+  return score;
+}
+function getMonthPct(user,y,m){
+  const days=monthDays(y,m),total=days.length*S.habits.length;
+  if(!total)return 0;
+  const done=days.reduce((a,day)=>a+S.habits.filter(h=>S.logs[`${user}|${day}|${h.id}`]).length,0);
+  return(done/total)*100;
+}
+function getStreak(user,id){
+  let streak=0,d=new Date(today());
+  while(S.logs[`${user}|${d.toISOString().split("T")[0]}|${id}`]){streak++;d.setDate(d.getDate()-1);}
+  return streak;
+}
+function getWeightEntries(user){
+  return Object.entries(S.weights).filter(([k])=>k.startsWith(`${user}|`))
+    .map(([k,v])=>({date:k.split("|")[1],weight:parseFloat(v.weight)}))
+    .filter(e=>!isNaN(e.weight)).sort((a,b)=>a.date.localeCompare(b.date));
+}
+function getWeightStats(user){
+  const e=getWeightEntries(user);if(e.length<2)return null;
+  const first=e[0].weight,last=e[e.length-1].weight,tc=last-first;
+  const ds=Math.max(daysBetween(e[0].date,e[e.length-1].date),1);
+  return{totalChange:tc,weeklyAvg:(tc/ds)*7,first,last,entries:e};
+}
+
+// ── Render engine ──────────────────────────────────────────────────────────
+function render(){
+  renderHeader();
+  renderNav();
+  renderContent();
+}
+
+function renderHeader(){
+  const u=S.users;
+  document.getElementById("hdr-title").innerHTML=
+    `<span style="color:${u.me.color}">${u.me.emoji} ${u.me.name}</span>`+
+    `<span style="color:var(--muted);font-size:14px"> vs </span>`+
+    `<span style="color:${u.partner.color}">${u.partner.name} ${u.partner.emoji}</span>`;
+  const ms=getUserScore("me",curYear,curMonth),ps=getUserScore("partner",curYear,curMonth);
+  document.getElementById("hdr-score").innerHTML=
+    `<span style="color:${u.me.color};font-weight:bold">${ms}</span>`+
+    `<span style="color:var(--muted)"> – </span>`+
+    `<span style="color:${u.partner.color};font-weight:bold">${ps}</span>`;
+}
+
+function renderNav(){
+  const nav=document.getElementById("nav");
+  nav.innerHTML="";
+  TABS.forEach(t=>{
+    const btn=el("button","");
+    btn.innerHTML=`<span class="icon">${t.icon}</span>${t.label}`;
+    if(t.id===tab)btn.classList.add("active");
+    btn.onclick=()=>{tab=t.id;render();};
+    nav.appendChild(btn);
+  });
+}
+
+function renderContent(){
+  const c=document.getElementById("content");
+  c.innerHTML="";
+  if(tab==="today")c.appendChild(renderToday());
+  else if(tab==="score")c.appendChild(renderScore());
+  else if(tab==="calendar")c.appendChild(renderCalendar());
+  else if(tab==="goals")c.appendChild(renderGoals());
+  else if(tab==="settings")c.appendChild(renderSettings());
+}
+
+// ── TODAY ──────────────────────────────────────────────────────────────────
+function renderToday(){
+  const wrap=el("div");
+  const t=today(),u=S.users;
+
+  // Goal countdown
+  const upcoming=S.goals.map(g=>({...g,days:daysBetween(t,g.date)})).filter(g=>g.days>=0).sort((a,b)=>a.days-b.days)[0];
+  if(upcoming){
+    const gc=el("div","card");
+    gc.style.cssText="background:linear-gradient(135deg,#1a0a2e,#0d0a1e);border:1px solid #6B35FF44;text-align:center;margin-bottom:16px;";
+    gc.innerHTML=`<div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#9B6BFF;margin-bottom:6px">Next Goal</div>`+
+      `<div style="font-size:20px;font-weight:bold;margin-bottom:4px">${upcoming.name}</div>`+
+      `<div style="font-size:56px;font-weight:900;color:#9B6BFF;line-height:1;text-shadow:0 0 30px #6B35FF88">${upcoming.days}</div>`+
+      `<div style="font-size:13px;color:var(--muted);margin-top:4px">days to go · ${upcoming.date}</div>`;
+    wrap.appendChild(gc);
+  }
+
+  // User pills
+  const pills=el("div","row");
+  ["me","partner"].forEach(usr=>{
+    const btn=el("button","pill");
+    btn.textContent=`${u[usr].emoji} ${u[usr].name}`;
+    if(activeUser===usr)btn.classList.add(usr==="me"?"active-me":"active-partner");
+    btn.onclick=()=>{activeUser=usr;render();};
+    pills.appendChild(btn);
+  });
+  wrap.appendChild(pills);
+
+  // Habits card
+  const hcard=el("div","card");
+  const hlabel=el("div","label","Today's Habits");
+  hcard.appendChild(hlabel);
+
+  S.habits.forEach(habit=>{
+    const done=!!S.logs[`${activeUser}|${t}|${habit.id}`];
+    const streak=getStreak(activeUser,habit.id);
+    const sc=habit.isSteps?(S.stepCounts[`${activeUser}|${t}`]||0):0;
+    const st=S.settings.stepTarget||10000;
+
+    const row=el("div","habit-row");
+    const hbtn=el("button","habit-btn"+(done?" done":""));
+    hbtn.textContent=done?"✓":habit.icon;
+    hbtn.onclick=()=>{
+      if(habit.isSteps){showStepsModal(activeUser,t);}
+      else{S.logs[`${activeUser}|${t}|${habit.id}`]=!S.logs[`${activeUser}|${t}|${habit.id}`];save();render();}
+    };
+    row.appendChild(hbtn);
+
+    const info=el("div","");info.style.flex="1";
+    const nm=el("div","");nm.style.cssText=`font-size:15px;color:${done?"var(--green)":""};font-weight:${done?"bold":"normal"}`;
+    nm.textContent=habit.name;info.appendChild(nm);
+    if(habit.isSteps){
+      const sd=el("div","");sd.style.cssText=`font-size:11px;color:${done?"var(--green)":sc>0?"#FF9800":"var(--muted)"}`;
+      sd.textContent=sc>0?`${sc.toLocaleString()} / ${st.toLocaleString()} steps`:"Tap to log steps";
+      info.appendChild(sd);
+    }
+    if(streak>0){const sr=el("div","");sr.style.cssText="font-size:11px;color:#FF9800";sr.textContent=`🔥 ${streak} day streak`;info.appendChild(sr);}
+    row.appendChild(info);
+
+    if(habit.isSteps){
+      const lb=el("button","");lb.textContent="Log";
+      lb.style.cssText="background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);padding:5px 10px;font-size:11px;cursor:pointer;";
+      lb.onclick=()=>showStepsModal(activeUser,t);
+      row.appendChild(lb);
+    }
+    hcard.appendChild(row);
+  });
+
+  const addBtn=el("button","btn-outline btn-full");addBtn.style.fontSize="12px";addBtn.textContent="+ Add Habit";
+  addBtn.onclick=()=>showHabitModal();
+  hcard.appendChild(addBtn);
+  wrap.appendChild(hcard);
+
+  // Check-in card
+  const ci=S.weights[`${activeUser}|${t}`]||{};
+  const cicard=el("div","card");
+  cicard.innerHTML=`<div class="label">Daily Check-in</div>`;
+  const splitDiv=el("div","split");splitDiv.style.marginBottom="12px";
+
+  const wDiv=el("div","");wDiv.innerHTML=`<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Weight (kg)</div>`;
+  const wInput=el("input","field");wInput.type="number";wInput.placeholder=ci.weight||"80.5";wInput.id="ci-weight";
+  wDiv.appendChild(wInput);
+
+  const calDiv=el("div","");calDiv.innerHTML=`<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Calories eaten</div>`;
+  const calInput=el("input","field");calInput.type="number";calInput.placeholder=ci.calories||"1800";calInput.id="ci-cal";
+  calDiv.appendChild(calInput);
+
+  splitDiv.appendChild(wDiv);splitDiv.appendChild(calDiv);
+  cicard.appendChild(splitDiv);
+
+  const saveBtn=el("button","btn btn-full");saveBtn.style.background=S.users[activeUser].color;saveBtn.textContent="Save Check-in";
+  saveBtn.onclick=()=>{
+    const w=document.getElementById("ci-weight").value;
+    const cal=document.getElementById("ci-cal").value;
+    if(w||cal){S.weights[`${activeUser}|${t}`]={weight:w||ci.weight||"",calories:cal||ci.calories||""};save();}
+    render();
+  };
+  cicard.appendChild(saveBtn);
+
+  if(ci.weight){
+    const saved=el("div","saved-row");
+    const calTarget=S.settings.calorieTarget;
+    const over=ci.calories&&calTarget?Number(ci.calories)-calTarget:null;
+    const calColor=over!==null?(over<=0?"var(--green)":"#FF5252"):"";
+    saved.innerHTML=`Saved: <span style="color:var(--text)">${ci.weight}kg</span> · <span style="color:var(--text)">${ci.calories||"–"} cal</span>`+
+      (over!==null?` <span style="color:${calColor}">${over<=0?"✓ on target":"(+"+over+" over)"}</span>`:"");
+    cicard.appendChild(saved);
+  }
+  wrap.appendChild(cicard);
+  return wrap;
+}
+
+// ── SCORE ──────────────────────────────────────────────────────────────────
+function renderScore(){
+  const wrap=el("div");
+  const ms=getUserScore("me",curYear,curMonth),ps=getUserScore("partner",curYear,curMonth);
+  const mPct=getMonthPct("me",curYear,curMonth),pPct=getMonthPct("partner",curYear,curMonth);
+  const winner=ms===ps?null:ms>ps?"me":"partner";
+  const prize=winner?S.prizes[`${winner}|${monthKey(curYear,curMonth)}`]:null;
+
+  // Month pills
+  const mr=el("div","months-row");
+  const months=[];for(let i=5;i>=0;i--){const d=new Date();d.setMonth(d.getMonth()-i);months.push({y:d.getFullYear(),m:d.getMonth(),label:d.toLocaleString("default",{month:"short",year:"2-digit"})});}
+  months.forEach(mo=>{
+    const btn=el("button","month-pill");btn.textContent=mo.label;
+    if(mo.y===curYear&&mo.m===curMonth)btn.classList.add("active");
+    btn.onclick=()=>{curYear=mo.y;curMonth=mo.m;render();};
+    mr.appendChild(btn);
+  });
+  wrap.appendChild(mr);
+
+  // Winner card
+  const wc=el("div","card winner-card");
+  if(winner){
+    const wcolor=S.users[winner].color;
+    wc.style.cssText=`background:linear-gradient(135deg,${wcolor}33,var(--surface));border:1px solid ${wcolor}44;border-radius:20px;padding:20px;margin-bottom:16px;text-align:center;`;
+    wc.innerHTML=`<div style="font-size:32px">🏆</div>`+
+      `<div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-top:4px">Leading</div>`+
+      `<div style="font-size:24px;font-weight:bold;color:${wcolor};margin-top:4px">${S.users[winner].emoji} ${S.users[winner].name}</div>`+
+      `<div style="font-size:14px;color:var(--muted);margin-top:4px">${Math.abs(ms-ps)} points ahead</div>`;
+    if(prize){
+      const pb=el("div","");pb.style.cssText=`margin-top:12px;padding:8px 14px;background:${0}22;border-radius:10px;font-size:13px;color:var(--gold);background:#FFD70022;`;
+      pb.textContent=`🎁 Prize: ${prize}`;wc.appendChild(pb);
+    } else {
+      const pb=el("button","btn-outline btn-sm");pb.style.marginTop="12px";pb.textContent="Set Prize 🎁";
+      pb.onclick=()=>showPrizeModal(winner);wc.appendChild(pb);
+    }
+  } else {
+    wc.style.cssText="border-radius:20px;padding:20px;margin-bottom:16px;text-align:center;";
+    wc.innerHTML=`<div style="font-size:32px">⚔️</div><div style="font-size:18px;font-weight:bold;margin-top:8px">It's a Tie!</div><div style="font-size:13px;color:var(--muted)">Both at ${ms} points</div>`;
+  }
+  wrap.appendChild(wc);
+
+  // Score cards
+  [["me",ms,mPct],["partner",ps,pPct]].forEach(([usr,score,pct])=>{
+    const uc=el("div","card");
+    const toS=Math.max(0,90-pct);
+    const isLeading=winner===usr;
+    if(isLeading)uc.style.border=`1px solid ${S.users[usr].color}66`;
+    const ucolor=S.users[usr].color;
+
+    const top=el("div","");top.style.cssText="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;";
+    top.innerHTML=`<div style="display:flex;align-items:center;gap:10px"><div style="font-size:28px">${S.users[usr].emoji}</div><div><div style="font-size:16px;font-weight:bold">${S.users[usr].name}</div><div style="font-size:12px;color:var(--muted)">Monthly completion</div></div></div>`+
+      `<div style="text-align:right"><div style="font-size:28px;font-weight:900;color:${ucolor}">${score}</div><div style="font-size:11px;color:var(--muted)">pts</div></div>`;
+    uc.appendChild(top);
+
+    const pb=el("div","progress-bar");
+    const pf=el("div","progress-fill");pf.style.width=`${Math.min(pct,100)}%`;pf.style.background=pct>=90?"var(--green)":ucolor;
+    pb.appendChild(pf);uc.appendChild(pb);
+
+    const prow=el("div","");prow.style.cssText="display:flex;justify-content:space-between;margin-top:6px;margin-bottom:12px;";
+    prow.innerHTML=`<span style="font-size:11px;color:var(--muted)">${Math.round(pct)}% complete</span>`+
+      `<span style="font-size:11px;color:${pct>=90?"var(--green)":"var(--muted)"}">${pct>=90?"✅ Success!":Math.round(toS)+"% to Success"}</span>`;
+    uc.appendChild(prow);
+
+    const chips=el("div","");chips.style.cssText="display:flex;gap:8px;flex-wrap:wrap;";
+    S.habits.forEach(h=>{const s=getStreak(usr,h.id);const c=el("div","streak-chip");c.innerHTML=`${h.icon} <span style="color:${s>0?"#FF9800":"var(--muted)"}">${s>0?"🔥"+s:"–"}</span>`;chips.appendChild(c);});
+    uc.appendChild(chips);
+    wrap.appendChild(uc);
+  });
+  return wrap;
+}
+
+// ── CALENDAR ───────────────────────────────────────────────────────────────
+function renderCalendar(){
+  const wrap=el("div");
+  const mPct=getMonthPct("me",curYear,curMonth),pPct=getMonthPct("partner",curYear,curMonth);
+
+  // Nav
+  const nav=el("div","");nav.style.cssText="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;";
+  const prev=el("button","btn-outline btn-sm");prev.textContent="←";prev.onclick=()=>{const d=new Date(curYear,curMonth-1);curYear=d.getFullYear();curMonth=d.getMonth();render();};
+  const next=el("button","btn-outline btn-sm");next.textContent="→";next.onclick=()=>{const d=new Date(curYear,curMonth+1);curYear=d.getFullYear();curMonth=d.getMonth();render();};
+  const title=el("div","");title.style.cssText="font-weight:bold;font-size:16px;";
+  title.textContent=new Date(curYear,curMonth).toLocaleString("default",{month:"long",year:"numeric"});
+  nav.appendChild(prev);nav.appendChild(title);nav.appendChild(next);
+  wrap.appendChild(nav);
+
+  // Month status
+  const ms=el("div","");ms.style.cssText="display:flex;gap:10px;margin-bottom:16px;";
+  [["me",mPct],["partner",pPct]].forEach(([usr,pct])=>{
+    const ig=pct>=90;
+    const mc=el("div","card");mc.style.cssText=`flex:1;text-align:center;padding:12px;margin-bottom:0;border:1px solid ${ig?"var(--green)66":"var(--border)"};background:${ig?"#00E67611":"var(--card)"};`;
+    mc.innerHTML=`<div style="font-size:20px">${ig?"✅":"🔲"}</div><div style="font-size:12px;font-weight:bold;margin-top:4px">${S.users[usr].name}</div><div style="font-size:11px;color:${ig?"var(--green)":"var(--muted)"}">${Math.round(pct)}% ${ig?"✓ Success!":`(${Math.round(Math.max(0,90-pct))}% to Success)`}</div>`;
+    ms.appendChild(mc);
+  });
+  wrap.appendChild(ms);
+
+  // Calendar grid
+  const card=el("div","card");
+  const days=["S","M","T","W","T","F","S"];
+  const headers=el("div","cal-grid");headers.style.marginBottom="8px";
+  days.forEach(d=>{const dh=el("div","");dh.style.cssText="text-align:center;font-size:10px;color:var(--muted);padding:4px 0;";dh.textContent=d;headers.appendChild(dh);});
+  card.appendChild(headers);
+
+  const grid=el("div","cal-grid");
+  const firstDay=new Date(curYear,curMonth,1).getDay();
+  const t=today();
+  for(let i=0;i<firstDay;i++){grid.appendChild(el("div",""));}
+  monthDays(curYear,curMonth).forEach(day=>{
+    const ms2=S.habits.filter(h=>S.logs[`me|${day}|${h.id}`]).length;
+    const ps2=S.habits.filter(h=>S.logs[`partner|${day}|${h.id}`]).length;
+    const total=S.habits.length;
+    const isFuture=day>t,isToday=day===t;
+    const bf=ms2===total&&ps2===total&&total>0,of=(ms2===total||ps2===total)&&total>0;
+    const dc=el("div","cal-day"+(isFuture?" future":bf?" both":of?" one":"")+(isToday?" today":""));
+    const dn=parseInt(day.split("-")[2]);
+    dc.innerHTML=`<div>${dn}</div>`;
+    if(!isFuture&&total>0){
+      const dots=el("div","dots");
+      const d1=el("div","dot");if(ms2>0)d1.style.background=S.users.me.color;dots.appendChild(d1);
+      const d2=el("div","dot");if(ps2>0)d2.style.background=S.users.partner.color;dots.appendChild(d2);
+      dc.appendChild(dots);
+    }
+    grid.appendChild(dc);
+  });
+  card.appendChild(grid);
+
+  const legend=el("div","");legend.style.cssText="display:flex;gap:16px;margin-top:12px;font-size:11px;color:var(--muted);";
+  legend.innerHTML=`<span><span style="color:${S.users.me.color}">●</span> ${S.users.me.name}</span>`+
+    `<span><span style="color:${S.users.partner.color}">●</span> ${S.users.partner.name}</span>`+
+    `<span><span style="color:var(--green)">●</span> Both</span>`;
+  card.appendChild(legend);
+  wrap.appendChild(card);
+  return wrap;
+}
+
+// ── GOALS ──────────────────────────────────────────────────────────────────
+function renderGoals(){
+  const wrap=el("div");
+  const t=today();
+
+  const hdr=el("div","");hdr.style.cssText="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;";
+  hdr.innerHTML=`<div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)">Goals & Countdown</div>`;
+  const addBtn=el("button","btn btn-sm");addBtn.textContent="+ Add Goal";addBtn.onclick=()=>showGoalModal();
+  hdr.appendChild(addBtn);wrap.appendChild(hdr);
+
+  if(!S.goals.length){const eg=el("div","card");eg.style.cssText="text-align:center;color:var(--muted);padding:32px;";eg.textContent="No goals yet. Add one! 🎯";wrap.appendChild(eg);}
+  S.goals.forEach(goal=>{
+    const dl=daysBetween(t,goal.date),ip=dl<0;
+    const gc=el("div","card goal-card");
+    gc.style.cssText=`background:${ip?"var(--card)":"linear-gradient(135deg,#1a0a2e,var(--card))"};border:1px solid ${ip?"var(--border)":"#6B35FF44"};text-align:center;padding:24px;`;
+    gc.innerHTML=`<div style="font-size:22px;margin-bottom:8px">${goal.name}</div>`+
+      `<div class="goal-days" style="color:${ip?"var(--muted)":"#9B6BFF"}">${ip?"Done!":dl}</div>`+
+      `<div style="font-size:13px;color:var(--muted);margin-top:4px">${ip?`Was on ${goal.date}`:`days away · ${goal.date}`}</div>`;
+    const rb=el("button","btn-outline btn-sm");rb.style.marginTop="12px";rb.textContent="Remove";
+    rb.onclick=()=>{S.goals=S.goals.filter(g=>g.id!==goal.id);save();render();};
+    gc.appendChild(rb);wrap.appendChild(gc);
+  });
+
+  // Weight trend
+  const wtlabel=el("div","label");wtlabel.style.marginTop="8px";wtlabel.textContent="Weight Trend";wrap.appendChild(wtlabel);
+  ["me","partner"].forEach(usr=>{
+    const stats=getWeightStats(usr),entries=getWeightEntries(usr);
+    const uc=el("div","card");
+    const top=el("div","");top.style.cssText="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;";
+    let statHtml="";
+    if(stats){
+      const tc=stats.totalChange,wa=stats.weeklyAvg;
+      statHtml=`<div style="text-align:right"><div style="font-size:13px;color:${tc<=0?"var(--green)":"#FF5252"};font-weight:bold">${tc<=0?"▼":"▲"} ${Math.abs(tc).toFixed(1)} kg total</div><div style="font-size:11px;color:var(--muted)">${wa<=0?"▼":"▲"} ${Math.abs(wa).toFixed(2)} kg/week</div></div>`;
+    }
+    top.innerHTML=`<div style="display:flex;align-items:center;gap:8px"><span style="font-size:20px">${S.users[usr].emoji}</span><span style="font-weight:bold;font-size:15px">${S.users[usr].name}</span></div>${statHtml}`;
+    uc.appendChild(top);
+    uc.appendChild(renderWeightChart(entries,S.users[usr].color));
+    if(stats){
+      const srow=el("div","");srow.style.cssText="display:flex;gap:8px;margin-top:14px;";
+      [["Start",stats.first.toFixed(1)+" kg","var(--muted)"],["Now",stats.last.toFixed(1)+" kg",stats.last<=stats.first?"var(--green)":"#FF5252"],["Weekly",(stats.weeklyAvg>0?"+":"")+stats.weeklyAvg.toFixed(2)+" kg",stats.weeklyAvg<=0?"var(--green)":"#FF5252"]].forEach(([lbl,val,col])=>{
+        const sb=el("div","stat-box");sb.innerHTML=`<div class="stat-label">${lbl}</div><div class="stat-val" style="color:${col}">${val}</div>`;
+        srow.appendChild(sb);
+      });
+      uc.appendChild(srow);
+    }
+    wrap.appendChild(uc);
+  });
+
+  // History
+  const histlabel=el("div","label");histlabel.style.marginTop="8px";histlabel.textContent="Check-in History";wrap.appendChild(histlabel);
+  const pills=el("div","row");
+  ["me","partner"].forEach(usr=>{
+    const btn=el("button","pill");btn.textContent=`${S.users[usr].emoji} ${S.users[usr].name}`;
+    if(activeUser===usr)btn.classList.add(usr==="me"?"active-me":"active-partner");
+    btn.onclick=()=>{activeUser=usr;render();};pills.appendChild(btn);
+  });
+  wrap.appendChild(pills);
+  Object.entries(S.weights).filter(([k])=>k.startsWith(`${activeUser}|`)).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,14).forEach(([key,val])=>{
+    const date=key.split("|")[1];const target=S.settings.calorieTarget;
+    const ov=val.calories&&target?Number(val.calories)-target:null;
+    const hrow=el("div","card");hrow.style.cssText="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;";
+    hrow.innerHTML=`<div style="font-size:13px;color:var(--muted)">${date}</div>`+
+      `<div style="display:flex;gap:14px;font-size:13px">`+
+      (val.weight?`<span>⚖️ ${val.weight}kg</span>`:"")+
+      (val.calories?`<span style="color:${ov!==null&&ov<=0?"var(--green)":"#FF5252"}">🔥 ${val.calories} cal</span>`:"")+`</div>`;
+    wrap.appendChild(hrow);
+  });
+  return wrap;
+}
+
+function renderWeightChart(entries,color){
+  if(entries.length<2){const d=el("div","");d.style.cssText="text-align:center;color:var(--muted);padding:24px 0;font-size:13px;";d.textContent="Log at least 2 weigh-ins to see your trend 📈";return d;}
   const W=300,H=110,PAD=14;
   const weights=entries.map(e=>e.weight);
   const minW=Math.min(...weights)-0.5,maxW=Math.max(...weights)+0.5;
@@ -93,492 +547,179 @@ function WeightChart({entries,color}){
   const n=pts.length;
   const sX=pts.reduce((s,_,i)=>s+i,0),sY=pts.reduce((s,p)=>s+p.y,0);
   const sXY=pts.reduce((s,p,i)=>s+i*p.y,0),sX2=pts.reduce((s,_,i)=>s+i*i,0);
-  const den=n*sX2-sX*sX;
-  const slope=den!==0?(n*sXY-sX*sY)/den:0;
-  const intercept=(sY-slope*sX)/n;
+  const den=n*sX2-sX*sX,slope=den?(n*sXY-sX*sY)/den:0,intercept=(sY-slope*sX)/n;
   const td=slope<0;
   const gid=`wg${color.replace("#","")}`;
-  return (
-    <div>
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{overflow:"visible"}}>
-        <defs><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity="0.25"/><stop offset="100%" stopColor={color} stopOpacity="0"/></linearGradient></defs>
-        <polygon points={`${pts[0].x},${H} ${poly} ${pts[pts.length-1].x},${H}`} fill={`url(#${gid})`}/>
-        <polyline points={poly} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>
-        <line x1={PAD} y1={intercept} x2={PAD+(n-1)*xStep} y2={slope*(n-1)+intercept} stroke={td?C.green:"#FF5252"} strokeWidth="1.5" strokeDasharray="4 3" opacity="0.7"/>
-        {pts.map((p,i)=><circle key={i} cx={p.x} cy={p.y} r="3.5" fill={color}/>)}
-      </svg>
-      <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:C.muted,marginTop:2}}>
-        <span>{entries[0].date.slice(5)}</span>
-        <span style={{fontSize:11,color:td?C.green:"#FF5252"}}>{td?"▼ Trending down ✓":"▲ Trending up"}</span>
-        <span>{entries[entries.length-1].date.slice(5)}</span>
-      </div>
-    </div>
-  );
+  const svgNS="http://www.w3.org/2000/svg";
+  const svg=document.createElementNS(svgNS,"svg");svg.setAttribute("viewBox",`0 0 ${W} ${H}`);svg.style.width="100%";svg.style.overflow="visible";
+  const defs=document.createElementNS(svgNS,"defs");
+  const lg=document.createElementNS(svgNS,"linearGradient");lg.id=gid;lg.setAttribute("x1","0");lg.setAttribute("y1","0");lg.setAttribute("x2","0");lg.setAttribute("y2","1");
+  const s1=document.createElementNS(svgNS,"stop");s1.setAttribute("offset","0%");s1.setAttribute("stop-color",color);s1.setAttribute("stop-opacity","0.25");
+  const s2=document.createElementNS(svgNS,"stop");s2.setAttribute("offset","100%");s2.setAttribute("stop-color",color);s2.setAttribute("stop-opacity","0");
+  lg.appendChild(s1);lg.appendChild(s2);defs.appendChild(lg);svg.appendChild(defs);
+  const fillPts=`${pts[0].x},${H} ${poly} ${pts[pts.length-1].x},${H}`;
+  const pg=document.createElementNS(svgNS,"polygon");pg.setAttribute("points",fillPts);pg.setAttribute("fill",`url(#${gid})`);svg.appendChild(pg);
+  const pl=document.createElementNS(svgNS,"polyline");pl.setAttribute("points",poly);pl.setAttribute("fill","none");pl.setAttribute("stroke",color);pl.setAttribute("stroke-width","2.5");pl.setAttribute("stroke-linejoin","round");pl.setAttribute("stroke-linecap","round");svg.appendChild(pl);
+  const tl=document.createElementNS(svgNS,"line");tl.setAttribute("x1",PAD);tl.setAttribute("y1",intercept);tl.setAttribute("x2",PAD+(n-1)*xStep);tl.setAttribute("y2",slope*(n-1)+intercept);tl.setAttribute("stroke",td?"#00E676":"#FF5252");tl.setAttribute("stroke-width","1.5");tl.setAttribute("stroke-dasharray","4 3");tl.setAttribute("opacity","0.7");svg.appendChild(tl);
+  pts.forEach(p=>{const c=document.createElementNS(svgNS,"circle");c.setAttribute("cx",p.x);c.setAttribute("cy",p.y);c.setAttribute("r","3.5");c.setAttribute("fill",color);svg.appendChild(c);});
+  const wrap=el("div","");
+  wrap.appendChild(svg);
+  const lrow=el("div","");lrow.style.cssText="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:2px;";
+  lrow.innerHTML=`<span>${entries[0].date.slice(5)}</span><span style="font-size:11px;color:${td?"var(--green)":"#FF5252"}">${td?"▼ Trending down ✓":"▲ Trending up"}</span><span>${entries[entries.length-1].date.slice(5)}</span>`;
+  wrap.appendChild(lrow);
+  return wrap;
 }
 
-function StepsModal({userName,existingCount,stepTarget,onSave,onClose}){
-  const [val,setVal]=useState(existingCount>0?String(existingCount):"");
-  const num=Number(val);
-  return (
-    <Modal title={`👟 Log Steps — ${userName}`} onClose={onClose}>
-      <div style={{marginBottom:8,fontSize:13,color:C.muted}}>Target: {stepTarget.toLocaleString()} steps/day</div>
-      <input style={{...IS,fontSize:24,textAlign:"center",marginBottom:12}} type="number" placeholder="e.g. 9500" value={val} onChange={e=>setVal(e.target.value)} autoFocus/>
-      {val!==""&&<div style={{textAlign:"center",marginBottom:16,fontSize:14,fontWeight:"bold",color:num>=stepTarget?C.green:"#FF9800"}}>{num>=stepTarget?`✅ ${num.toLocaleString()} steps — Goal smashed!`:`${(stepTarget-num).toLocaleString()} more steps to go`}</div>}
-      <div style={{display:"flex",gap:10}}>
-        <button style={{...OBS,flex:1}} onClick={onClose}>Cancel</button>
-        <button style={{...BS(),flex:2}} onClick={()=>{if(val!==""&&!isNaN(num)&&num>=0)onSave(num);onClose();}}>Save</button>
-      </div>
-    </Modal>
-  );
+// ── SETTINGS ───────────────────────────────────────────────────────────────
+function renderSettings(){
+  const wrap=el("div");
+
+  // Users
+  const ulabel=el("div","label");ulabel.textContent="Users";wrap.appendChild(ulabel);
+  ["me","partner"].forEach(usr=>{
+    const uc=el("div","card");uc.style.cssText="display:flex;justify-content:space-between;align-items:center;";
+    uc.innerHTML=`<div style="display:flex;align-items:center;gap:12px"><div style="font-size:24px">${S.users[usr].emoji}</div><div><div style="font-weight:bold">${S.users[usr].name}</div><div style="font-size:12px;color:var(--muted)">Tap to edit</div></div></div>`;
+    const eb=el("button","btn-outline btn-sm");eb.textContent="Edit";eb.onclick=()=>showEditUserModal(usr);
+    uc.appendChild(eb);wrap.appendChild(uc);
+  });
+
+  // Habits
+  const hlabel=el("div","label");hlabel.style.marginTop="8px";hlabel.textContent="Habits";wrap.appendChild(hlabel);
+  S.habits.forEach(habit=>{
+    const hc=el("div","card");hc.style.cssText="display:flex;justify-content:space-between;align-items:center;";
+    hc.innerHTML=`<div style="display:flex;gap:10px;align-items:center;flex:1;min-width:0"><span style="font-size:20px;flex-shrink:0">${habit.icon}</span><div><div style="font-weight:bold">${habit.name}</div><div style="font-size:12px;color:var(--muted)">Target: ${habit.target}d/mo${habit.isSteps?" · Steps":""}</div></div></div>`;
+    const btns=el("div","");btns.style.cssText="display:flex;gap:6px;flex-shrink:0;";
+    const eb=el("button","");eb.style.cssText="background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);padding:6px 12px;cursor:pointer;font-size:12px;";eb.textContent="Edit";eb.onclick=()=>showHabitModal(habit);
+    const rb=el("button","");rb.style.cssText="color:#FF5252;background:none;border:1px solid #FF525444;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;";rb.textContent="✕";rb.onclick=()=>{S.habits=S.habits.filter(h=>h.id!==habit.id);save();render();};
+    btns.appendChild(eb);btns.appendChild(rb);hc.appendChild(btns);wrap.appendChild(hc);
+  });
+  const addBtn=el("button","btn btn-full");addBtn.style.marginTop="4px";addBtn.textContent="+ Add Habit";addBtn.onclick=()=>showHabitModal();
+  wrap.appendChild(addBtn);
+
+  // Targets
+  const tlabel=el("div","label");tlabel.style.marginTop="16px";tlabel.textContent="Targets";wrap.appendChild(tlabel);
+  const tc=el("div","card");
+  const calLbl=el("div","");calLbl.style.cssText="font-size:12px;color:var(--muted);margin-bottom:6px;";calLbl.textContent="Daily Calorie Target";
+  const calIn=el("input","field");calIn.type="number";calIn.value=S.settings.calorieTarget;calIn.style.marginBottom="12px";
+  calIn.onchange=()=>{S.settings.calorieTarget=Number(calIn.value);save();};
+  const stLbl=el("div","");stLbl.style.cssText="font-size:12px;color:var(--muted);margin-bottom:6px;";stLbl.textContent="Daily Step Target";
+  const stIn=el("input","field");stIn.type="number";stIn.value=S.settings.stepTarget||10000;
+  stIn.onchange=()=>{S.settings.stepTarget=Number(stIn.value);save();};
+  tc.appendChild(calLbl);tc.appendChild(calIn);tc.appendChild(stLbl);tc.appendChild(stIn);
+  wrap.appendChild(tc);
+
+  const dlabel=el("div","label");dlabel.style.marginTop="8px";dlabel.textContent="Data";wrap.appendChild(dlabel);
+  const dc=el("div","card");dc.style.cssText="font-size:13px;color:var(--muted);line-height:1.6;";
+  dc.textContent="💾 Data saves locally on this device. Each phone keeps its own data — log your habits on your own phone each day.";
+  wrap.appendChild(dc);
+  return wrap;
 }
 
-function HabitModal({initial,onSave,onClose}){
-  const [form,setForm]=useState(initial||{name:"",icon:"⭐",target:30});
-  return (
-    <Modal title={initial?.id?"Edit Habit":"Add New Habit"} onClose={onClose}>
-      <div style={{marginBottom:12}}><div style={{fontSize:12,color:C.muted,marginBottom:6}}>Habit Name</div><input style={IS} placeholder="e.g. Meditation" value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
-      <div style={{marginBottom:12}}><div style={{fontSize:12,color:C.muted,marginBottom:6}}>Icon (emoji)</div><input style={IS} placeholder="🧘" value={form.icon} onChange={e=>setForm(p=>({...p,icon:e.target.value}))}/></div>
-      <div style={{marginBottom:20}}><div style={{fontSize:12,color:C.muted,marginBottom:6}}>Target (days/month)</div><input style={IS} type="number" placeholder="30" value={form.target} onChange={e=>setForm(p=>({...p,target:Number(e.target.value)}))}/></div>
-      <div style={{display:"flex",gap:10}}>
-        <button style={{...OBS,flex:1}} onClick={onClose}>Cancel</button>
-        <button style={{...BS(),flex:2}} onClick={()=>{if(form.name.trim()){onSave(form);onClose();}}}>{initial?.id?"Save Changes":"Add Habit"}</button>
-      </div>
-    </Modal>
-  );
+// ── MODALS ─────────────────────────────────────────────────────────────────
+function showModal(title, buildFn){
+  const container=document.getElementById("modals");
+  const overlay=el("div","modal-overlay");
+  overlay.onclick=e=>{if(e.target===overlay)closeModal();};
+  const box=el("div","modal-box");
+  const t=el("div","modal-title");t.textContent=title;box.appendChild(t);
+  buildFn(box,()=>closeModal());
+  overlay.appendChild(box);container.appendChild(overlay);
+}
+function closeModal(){
+  const m=document.getElementById("modals");
+  if(m.lastChild)m.removeChild(m.lastChild);
 }
 
-function GoalModal({onSave,onClose}){
-  const [form,setForm]=useState({name:"",date:""});
-  return (
-    <Modal title="Add Goal" onClose={onClose}>
-      <div style={{marginBottom:12}}><div style={{fontSize:12,color:C.muted,marginBottom:6}}>Goal Name</div><input style={IS} placeholder="e.g. Trip to Japan 🇯🇵" value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
-      <div style={{marginBottom:20}}><div style={{fontSize:12,color:C.muted,marginBottom:6}}>Target Date</div><input style={IS} type="date" value={form.date} onChange={e=>setForm(p=>({...p,date:e.target.value}))}/></div>
-      <div style={{display:"flex",gap:10}}>
-        <button style={{...OBS,flex:1}} onClick={onClose}>Cancel</button>
-        <button style={{...BS(),flex:2}} onClick={()=>{if(form.name.trim()&&form.date){onSave(form);onClose();}}}>Add Goal</button>
-      </div>
-    </Modal>
-  );
+function showStepsModal(user,date){
+  const existing=S.stepCounts[`${user}|${date}`]||0;
+  const target=S.settings.stepTarget||10000;
+  showModal(`👟 Log Steps — ${S.users[user].name}`,box=>{
+    const info=el("div","");info.style.cssText="margin-bottom:8px;font-size:13px;color:var(--muted);";info.textContent=`Target: ${target.toLocaleString()} steps/day`;box.appendChild(info);
+    const inp=el("input","field");inp.type="number";inp.placeholder="e.g. 9500";inp.style.cssText="font-size:24px;text-align:center;margin-bottom:12px;";if(existing)inp.value=existing;
+    const feedback=el("div","");feedback.style.cssText="text-align:center;margin-bottom:16px;font-size:14px;font-weight:bold;min-height:24px;";
+    inp.oninput=()=>{
+      const n=Number(inp.value);
+      if(inp.value){feedback.style.color=n>=target?"var(--green)":"#FF9800";feedback.textContent=n>=target?`✅ ${n.toLocaleString()} steps — Goal smashed!`:`${(target-n).toLocaleString()} more steps to go`;}
+      else feedback.textContent="";
+    };
+    box.appendChild(inp);box.appendChild(feedback);
+    const row=el("div","modal-row");
+    const cancel=el("button","btn-outline");cancel.style.flex="1";cancel.textContent="Cancel";cancel.onclick=closeModal;
+    const save=el("button","btn");save.style.flex="2";save.textContent="Save";
+    save.onclick=()=>{
+      const n=Number(inp.value);
+      if(inp.value&&!isNaN(n)&&n>=0){S.stepCounts[`${user}|${date}`]=n;S.logs[`${user}|${date}|steps`]=n>=target;window.save();}
+      closeModal();render();
+    };
+    row.appendChild(cancel);row.appendChild(save);box.appendChild(row);
+    setTimeout(()=>inp.focus(),100);
+  });
 }
 
-function PrizeModal({userName,onSave,onClose}){
-  const [text,setText]=useState("");
-  return (
-    <Modal title={`🏆 Set Prize for ${userName}`} onClose={onClose}>
-      <div style={{marginBottom:20}}><div style={{fontSize:12,color:C.muted,marginBottom:6}}>What's the prize?</div><input style={IS} placeholder="e.g. Dinner at favorite restaurant 🍣" value={text} onChange={e=>setText(e.target.value)} autoFocus/></div>
-      <div style={{display:"flex",gap:10}}>
-        <button style={{...OBS,flex:1}} onClick={onClose}>Cancel</button>
-        <button style={{...BS(C.gold),flex:2}} onClick={()=>{if(text.trim()){onSave(text);onClose();}}}>Set Prize 🎁</button>
-      </div>
-    </Modal>
-  );
-}
-
-function EditUserModal({userData,onSave,onClose}){
-  const [form,setForm]=useState({name:userData.name,emoji:userData.emoji});
-  return (
-    <Modal title={`Edit ${userData.name}`} onClose={onClose}>
-      <div style={{marginBottom:12}}><div style={{fontSize:12,color:C.muted,marginBottom:6}}>Name</div><input style={IS} value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
-      <div style={{marginBottom:20}}><div style={{fontSize:12,color:C.muted,marginBottom:6}}>Emoji</div><input style={IS} value={form.emoji} onChange={e=>setForm(p=>({...p,emoji:e.target.value}))}/></div>
-      <button style={{...BS(),width:"100%"}} onClick={()=>{onSave(form);onClose();}}>Save</button>
-    </Modal>
-  );
-}
-
-function SettingsTargets({settings,onSave}){
-  const [cal,setCal]=useState(String(settings.calorieTarget));
-  const [steps,setSteps]=useState(String(settings.stepTarget||10000));
-  return (
-    <div style={CS}>
-      <div style={{marginBottom:12}}><div style={{fontSize:12,color:C.muted,marginBottom:6}}>Daily Calorie Target</div><input style={IS} type="number" value={cal} onChange={e=>setCal(e.target.value)} onBlur={()=>onSave({calorieTarget:Number(cal),stepTarget:Number(steps)})}/></div>
-      <div><div style={{fontSize:12,color:C.muted,marginBottom:6}}>Daily Step Target</div><input style={IS} type="number" value={steps} onChange={e=>setSteps(e.target.value)} onBlur={()=>onSave({calorieTarget:Number(cal),stepTarget:Number(steps)})}/></div>
-      <div style={{marginTop:10,fontSize:11,color:C.muted}}>Changes save when you tap out of the field.</div>
-    </div>
-  );
-}
-
-function App(){
-  const [state,setState]=useState(null);
-  const [tab,setTab]=useState("today");
-  const [activeUser,setActiveUser]=useState("me");
-  const [showAddHabit,setShowAddHabit]=useState(false);
-  const [editHabit,setEditHabit]=useState(null);
-  const [showAddGoal,setShowAddGoal]=useState(false);
-  const [showPrize,setShowPrize]=useState(null);
-  const [editUser,setEditUser]=useState(null);
-  const [stepsModal,setStepsModal]=useState(null);
-  const [ciWeight,setCiWeight]=useState("");
-  const [ciCal,setCiCal]=useState("");
-  const [curMonth,setCurMonth]=useState(()=>{const n=new Date();return{year:n.getFullYear(),month:n.getMonth()};});
-
-  useEffect(()=>{
-    try{
-      const raw=localStorage.getItem(STORAGE_KEY);
-      if(raw){
-        const p=JSON.parse(raw);
-        setState({...DEFAULT_STATE,...p,users:{...DEFAULT_STATE.users,...(p.users||{})},habits:p.habits||DEFAULT_STATE.habits,stepCounts:p.stepCounts||{}});
-      } else setState(DEFAULT_STATE);
-    }catch{setState(DEFAULT_STATE);}
-  },[]);
-
-  const update=useCallback(fn=>{
-    setState(prev=>{
-      const next=fn(prev);
-      try{localStorage.setItem(STORAGE_KEY,JSON.stringify(next));}catch{}
-      return next;
+function showHabitModal(existing){
+  showModal(existing?"Edit Habit":"Add New Habit",box=>{
+    const fields=[["Habit Name","name","text",existing?.name||""],["Icon (emoji)","icon","text",existing?.icon||"⭐"],["Target (days/month)","target","number",existing?.target||30]];
+    const inputs={};
+    fields.forEach(([lbl,key,type,val])=>{
+      const f=el("div","modal-field");f.innerHTML=`<label>${lbl}</label>`;
+      const inp=el("input","field");inp.type=type;inp.value=val;inputs[key]=inp;f.appendChild(inp);box.appendChild(f);
     });
-  },[]);
-
-  if(!state) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#0a0a0f",color:"#fff",fontFamily:"Georgia,serif",fontSize:18}}>Loading... ✨</div>;
-
-  const today=getToday();
-  const monthKey=getMonthKey();
-  const u=state.users;
-
-  const getLog=(user,date,id)=>!!state.logs[`${user}|${date}|${id}`];
-  const toggleLog=(user,date,id)=>update(p=>({...p,logs:{...p.logs,[`${user}|${date}|${id}`]:!p.logs[`${user}|${date}|${id}`]}}));
-  const getStepCount=(user,date)=>state.stepCounts?.[`${user}|${date}`]||0;
-  const saveSteps=(user,date,count)=>{
-    const target=state.settings.stepTarget||10000;
-    update(p=>({...p,stepCounts:{...p.stepCounts,[`${user}|${date}`]:count},logs:{...p.logs,[`${user}|${date}|steps`]:count>=target}}));
-  };
-  const getCI=(user,date)=>state.weights[`${user}|${date}`]||null;
-  const saveCI=(user,date,data)=>update(p=>({...p,weights:{...p.weights,[`${user}|${date}`]:data}}));
-  const getUserScore=(user,year,month)=>{
-    let score=0;
-    getMonthDays(year,month).forEach(day=>state.habits.forEach(h=>{if(state.logs[`${user}|${day}|${h.id}`])score++;}));
-    return score;
-  };
-  const getMonthPct=(user,year,month)=>{
-    const days=getMonthDays(year,month);
-    const total=days.length*state.habits.length;
-    const done=days.reduce((a,day)=>a+state.habits.filter(h=>state.logs[`${user}|${day}|${h.id}`]).length,0);
-    return total>0?(done/total)*100:0;
-  };
-  const getStreak=(user,id)=>{
-    let streak=0,d=new Date(today);
-    while(state.logs[`${user}|${d.toISOString().split("T")[0]}|${id}`]){streak++;d.setDate(d.getDate()-1);}
-    return streak;
-  };
-  const getWeightEntries=user=>Object.entries(state.weights)
-    .filter(([k])=>k.startsWith(`${user}|`))
-    .map(([k,v])=>({date:k.split("|")[1],weight:parseFloat(v.weight)}))
-    .filter(e=>!isNaN(e.weight))
-    .sort((a,b)=>a.date.localeCompare(b.date));
-  const getWeightStats=user=>{
-    const e=getWeightEntries(user);
-    if(e.length<2)return null;
-    const first=e[0].weight,last=e[e.length-1].weight,tc=last-first;
-    const ds=Math.max(daysBetween(e[0].date,e[e.length-1].date),1);
-    return{totalChange:tc,weeklyAvg:(tc/ds)*7,first,last,entries:e};
-  };
-
-  const meScore=getUserScore("me",curMonth.year,curMonth.month);
-  const partnerScore=getUserScore("partner",curMonth.year,curMonth.month);
-  const nextGoal=state.goals.map(g=>({...g,days:daysBetween(today,g.date)})).filter(g=>g.days>=0).sort((a,b)=>a.days-b.days)[0];
-
-  const pillSt=user=>({padding:"6px 16px",borderRadius:20,border:`1.5px solid ${activeUser===user?state.users[user].color:C.border}`,background:activeUser===user?`${state.users[user].color}22`:"transparent",color:activeUser===user?state.users[user].color:C.muted,cursor:"pointer",fontFamily:"Georgia,serif",fontSize:13,fontWeight:activeUser===user?"bold":"normal"});
-
-  const todayCI=getCI(activeUser,today);
-  const stepTarget=state.settings.stepTarget||10000;
-
-  // ── TODAY ──
-  const todayJSX=(
-    <div>
-      {nextGoal&&(
-        <div style={{background:"linear-gradient(135deg,#1a0a2e,#0d0a1e)",border:"1px solid #6B35FF44",borderRadius:20,padding:20,marginBottom:16,textAlign:"center"}}>
-          <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#9B6BFF",marginBottom:6}}>Next Goal</div>
-          <div style={{fontSize:20,fontWeight:"bold",color:C.text,marginBottom:4}}>{nextGoal.name}</div>
-          <div style={{fontSize:56,fontWeight:"900",color:"#9B6BFF",lineHeight:1,margin:"8px 0",textShadow:"0 0 30px #6B35FF88"}}>{nextGoal.days}</div>
-          <div style={{fontSize:13,color:C.muted}}>days to go · {nextGoal.date}</div>
-        </div>
-      )}
-      <div style={{display:"flex",gap:8,marginBottom:16}}>
-        <button style={pillSt("me")} onClick={()=>{setActiveUser("me");setCiWeight("");setCiCal("");}}>{u.me.emoji} {u.me.name}</button>
-        <button style={pillSt("partner")} onClick={()=>{setActiveUser("partner");setCiWeight("");setCiCal("");}}>{u.partner.emoji} {u.partner.name}</button>
-      </div>
-      <div style={CS}>
-        <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:C.muted,marginBottom:14}}>Today's Habits</div>
-        {state.habits.map(h=>{
-          const done=getLog(activeUser,today,h.id);
-          const streak=getStreak(activeUser,h.id);
-          const sc=h.isSteps?getStepCount(activeUser,today):0;
-          return(
-            <div key={h.id} style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
-              <button onClick={()=>{if(h.isSteps)setStepsModal({user:activeUser,date:today});else toggleLog(activeUser,today,h.id);}}
-                style={{width:48,height:48,borderRadius:14,border:done?`2px solid ${C.green}`:`2px solid ${C.border}`,background:done?`${C.green}22`:"transparent",color:done?C.green:C.muted,fontSize:20,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                {done?"✓":h.icon}
-              </button>
-              <div style={{flex:1}}>
-                <div style={{fontSize:15,color:done?C.green:C.text,fontWeight:done?"bold":"normal"}}>{h.name}</div>
-                {h.isSteps&&<div style={{fontSize:11,color:done?C.green:sc>0?"#FF9800":C.muted}}>{sc>0?`${sc.toLocaleString()} / ${stepTarget.toLocaleString()} steps`:"Tap to log steps"}</div>}
-                {streak>0&&<div style={{fontSize:11,color:"#FF9800"}}>🔥 {streak} day streak</div>}
-              </div>
-              {h.isSteps&&<button onClick={()=>setStepsModal({user:activeUser,date:today})} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,color:C.muted,padding:"5px 10px",fontSize:11,cursor:"pointer",fontFamily:"Georgia,serif"}}>Log</button>}
-            </div>
-          );
-        })}
-        <button style={{...OBS,width:"100%",fontSize:12}} onClick={()=>setShowAddHabit(true)}>+ Add Habit</button>
-      </div>
-      {/* Check-in — uses top-level state so inputs never remount */}
-      <div style={CS}>
-        <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:C.muted,marginBottom:14}}>Daily Check-in</div>
-        <div style={{display:"flex",gap:10,marginBottom:12}}>
-          <div style={{flex:1}}>
-            <div style={{fontSize:11,color:C.muted,marginBottom:6}}>Weight (kg)</div>
-            <input style={IS} type="number" placeholder={todayCI?.weight||"80.5"} value={ciWeight} onChange={e=>setCiWeight(e.target.value)}/>
-          </div>
-          <div style={{flex:1}}>
-            <div style={{fontSize:11,color:C.muted,marginBottom:6}}>Calories eaten</div>
-            <input style={IS} type="number" placeholder={todayCI?.calories||"1800"} value={ciCal} onChange={e=>setCiCal(e.target.value)}/>
-          </div>
-        </div>
-        <button style={{...BS(state.users[activeUser].color),width:"100%"}} onClick={()=>{saveCI(activeUser,today,{weight:ciWeight||todayCI?.weight||"",calories:ciCal||todayCI?.calories||""});setCiWeight("");setCiCal("");}}>Save Check-in</button>
-        {todayCI?.weight&&(
-          <div style={{marginTop:12,padding:10,background:C.surface,borderRadius:10,fontSize:13,color:C.muted}}>
-            Saved: <span style={{color:C.text}}>{todayCI.weight}kg</span> · <span style={{color:C.text}}>{todayCI.calories} cal</span>
-            {state.settings.calorieTarget&&todayCI.calories&&(
-              <span style={{color:Number(todayCI.calories)<=state.settings.calorieTarget?C.green:"#FF5252"}}>
-                {" "}{Number(todayCI.calories)<=state.settings.calorieTarget?"✓ on target":`(+${Number(todayCI.calories)-state.settings.calorieTarget} over)`}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  // ── SCORE ──
-  const ScoreTab=()=>{
-    const mePct=getMonthPct("me",curMonth.year,curMonth.month);
-    const partnerPct=getMonthPct("partner",curMonth.year,curMonth.month);
-    const winner=meScore===partnerScore?null:meScore>partnerScore?"me":"partner";
-    const prize=winner?state.prizes[`${winner}|${monthKey}`]:null;
-    const months=[];
-    for(let i=5;i>=0;i--){const d=new Date();d.setMonth(d.getMonth()-i);months.push({year:d.getFullYear(),month:d.getMonth(),label:d.toLocaleString("default",{month:"short",year:"2-digit"})});}
-    return(
-      <div>
-        <div style={{display:"flex",gap:6,marginBottom:16,overflowX:"auto",paddingBottom:4}}>
-          {months.map(m=>{const active=m.year===curMonth.year&&m.month===curMonth.month;return<button key={`${m.year}-${m.month}`} onClick={()=>setCurMonth({year:m.year,month:m.month})} style={{background:active?C.accent:"transparent",border:`1px solid ${active?C.accent:C.border}`,color:active?"#fff":C.muted,borderRadius:10,padding:"6px 12px",fontSize:12,cursor:"pointer",whiteSpace:"nowrap",fontFamily:"Georgia,serif"}}>{m.label}</button>;})}
-        </div>
-        <div style={{background:winner?`linear-gradient(135deg,${state.users[winner].color}33,${C.surface})`:C.card,border:`1px solid ${winner?state.users[winner].color+"44":C.border}`,borderRadius:20,padding:20,marginBottom:16,textAlign:"center"}}>
-          {winner?(<>
-            <div style={{fontSize:32}}>🏆</div>
-            <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:C.muted,marginTop:4}}>Leading</div>
-            <div style={{fontSize:24,fontWeight:"bold",color:state.users[winner].color,marginTop:4}}>{state.users[winner].emoji} {state.users[winner].name}</div>
-            <div style={{fontSize:14,color:C.muted,marginTop:4}}>{Math.abs(meScore-partnerScore)} points ahead</div>
-            {prize?<div style={{marginTop:12,padding:"8px 14px",background:`${C.gold}22`,borderRadius:10,fontSize:13,color:C.gold}}>🎁 Prize: {prize}</div>
-              :<button style={{...OBS,marginTop:12,fontSize:12}} onClick={()=>setShowPrize(winner)}>Set Prize 🎁</button>}
-          </>):(<>
-            <div style={{fontSize:32}}>⚔️</div>
-            <div style={{fontSize:18,fontWeight:"bold",color:C.text,marginTop:8}}>It's a Tie!</div>
-            <div style={{fontSize:13,color:C.muted}}>Both at {meScore} points</div>
-          </>)}
-        </div>
-        {["me","partner"].map(user=>{
-          const pct=user==="me"?mePct:partnerPct;
-          const score=user==="me"?meScore:partnerScore;
-          const toS=Math.max(0,90-pct);
-          return(
-            <div key={user} style={{...CS,border:`1px solid ${winner===user?state.users[user].color+"66":C.border}`}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
-                <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  <div style={{fontSize:28}}>{state.users[user].emoji}</div>
-                  <div><div style={{fontSize:16,fontWeight:"bold",color:C.text}}>{state.users[user].name}</div><div style={{fontSize:12,color:C.muted}}>Monthly completion</div></div>
-                </div>
-                <div style={{textAlign:"right"}}><div style={{fontSize:28,fontWeight:"900",color:state.users[user].color}}>{score}</div><div style={{fontSize:11,color:C.muted}}>pts</div></div>
-              </div>
-              <div style={{background:C.surface,borderRadius:8,height:8,overflow:"hidden"}}>
-                <div style={{height:"100%",width:`${Math.min(pct,100)}%`,background:pct>=90?C.green:state.users[user].color,borderRadius:8,transition:"width 0.5s"}}/>
-              </div>
-              <div style={{display:"flex",justifyContent:"space-between",marginTop:6}}>
-                <span style={{fontSize:11,color:C.muted}}>{Math.round(pct)}% complete</span>
-                <span style={{fontSize:11,color:pct>=90?C.green:C.muted}}>{pct>=90?"✅ Success!":`${Math.round(toS)}% to Success`}</span>
-              </div>
-              <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}>
-                {state.habits.map(h=>{const s=getStreak(user,h.id);return<div key={h.id} style={{background:C.surface,borderRadius:8,padding:"4px 10px",fontSize:12,color:C.text}}>{h.icon} <span style={{color:s>0?"#FF9800":C.muted}}>{s>0?`🔥${s}`:"–"}</span></div>;})}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
-  // ── CALENDAR ──
-  const CalendarTab=()=>{
-    const days=getMonthDays(curMonth.year,curMonth.month);
-    const firstDay=new Date(curMonth.year,curMonth.month,1).getDay();
-    const mePct=getMonthPct("me",curMonth.year,curMonth.month);
-    const partnerPct=getMonthPct("partner",curMonth.year,curMonth.month);
-    return(
-      <div>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
-          <button style={{...OBS,padding:"8px 14px"}} onClick={()=>{const d=new Date(curMonth.year,curMonth.month-1);setCurMonth({year:d.getFullYear(),month:d.getMonth()});}}>←</button>
-          <div style={{fontWeight:"bold",fontSize:16,color:C.text}}>{new Date(curMonth.year,curMonth.month).toLocaleString("default",{month:"long",year:"numeric"})}</div>
-          <button style={{...OBS,padding:"8px 14px"}} onClick={()=>{const d=new Date(curMonth.year,curMonth.month+1);setCurMonth({year:d.getFullYear(),month:d.getMonth()});}}>→</button>
-        </div>
-        <div style={{display:"flex",gap:10,marginBottom:16}}>
-          {["me","partner"].map(user=>{const pct=user==="me"?mePct:partnerPct;const ig=pct>=90;return<div key={user} style={{flex:1,...CS,textAlign:"center",padding:12,border:`1px solid ${ig?C.green+"66":C.border}`,background:ig?`${C.green}11`:C.card,marginBottom:0}}><div style={{fontSize:20}}>{ig?"✅":"🔲"}</div><div style={{fontSize:12,fontWeight:"bold",color:C.text,marginTop:4}}>{state.users[user].name}</div><div style={{fontSize:11,color:ig?C.green:C.muted}}>{Math.round(pct)}% {ig?"✓ Success!":`(${Math.round(Math.max(0,90-pct))}% to Success)`}</div></div>;})}
-        </div>
-        <div style={CS}>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:8}}>
-            {["S","M","T","W","T","F","S"].map((d,i)=><div key={i} style={{textAlign:"center",fontSize:10,color:C.muted,padding:"4px 0"}}>{d}</div>)}
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
-            {Array(firstDay).fill(null).map((_,i)=><div key={`e${i}`}/>)}
-            {days.map(day=>{
-              const ms=state.habits.filter(h=>state.logs[`me|${day}|${h.id}`]).length;
-              const ps=state.habits.filter(h=>state.logs[`partner|${day}|${h.id}`]).length;
-              const total=state.habits.length;
-              const isToday=day===today,isFuture=day>today;
-              const bf=ms===total&&ps===total&&total>0,of=(ms===total||ps===total)&&total>0;
-              return<div key={day} style={{aspectRatio:"1",borderRadius:8,background:isFuture?"transparent":bf?`${C.green}33`:of?`${C.accent}22`:C.surface,border:isToday?`1.5px solid ${C.accent}`:"1px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontSize:11,color:isFuture?C.border:C.text,padding:2}}>
-                <div>{parseInt(day.split("-")[2])}</div>
-                {!isFuture&&total>0&&<div style={{display:"flex",gap:1,marginTop:1}}><div style={{width:4,height:4,borderRadius:"50%",background:ms>0?u.me.color:C.border}}/><div style={{width:4,height:4,borderRadius:"50%",background:ps>0?u.partner.color:C.border}}/></div>}
-              </div>;
-            })}
-          </div>
-          <div style={{display:"flex",gap:16,marginTop:12,fontSize:11,color:C.muted}}>
-            <span><span style={{color:u.me.color}}>●</span> {u.me.name}</span>
-            <span><span style={{color:u.partner.color}}>●</span> {u.partner.name}</span>
-            <span><span style={{color:C.green}}>●</span> Both</span>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // ── GOALS ──
-  const GoalsTab=()=>(
-    <div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
-        <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:C.muted}}>Goals & Countdown</div>
-        <button style={{...BS(),padding:"8px 16px",fontSize:12}} onClick={()=>setShowAddGoal(true)}>+ Add Goal</button>
-      </div>
-      {state.goals.length===0&&<div style={{...CS,textAlign:"center",color:C.muted,padding:32}}>No goals yet. Add one! 🎯</div>}
-      {state.goals.map(goal=>{const dl=daysBetween(today,goal.date),ip=dl<0;return<div key={goal.id} style={{...CS,background:ip?C.card:`linear-gradient(135deg,#1a0a2e,${C.card})`,border:`1px solid ${ip?C.border:"#6B35FF44"}`,textAlign:"center",padding:24}}><div style={{fontSize:22,marginBottom:8}}>{goal.name}</div><div style={{fontSize:52,fontWeight:"900",color:ip?C.muted:"#9B6BFF",lineHeight:1}}>{ip?"Done!":dl}</div><div style={{fontSize:13,color:C.muted,marginTop:4}}>{ip?`Was on ${goal.date}`:`days away · ${goal.date}`}</div><button style={{...OBS,marginTop:12,fontSize:11,padding:"6px 14px"}} onClick={()=>update(p=>({...p,goals:p.goals.filter(g=>g.id!==goal.id)}))}>Remove</button></div>;})}
-
-      <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:C.muted,marginBottom:12,marginTop:8}}>Weight Trend</div>
-      {["me","partner"].map(user=>{
-        const stats=getWeightStats(user);
-        const entries=getWeightEntries(user);
-        return<div key={user} style={CS}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-            <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:20}}>{state.users[user].emoji}</span><span style={{fontWeight:"bold",fontSize:15,color:C.text}}>{state.users[user].name}</span></div>
-            {stats&&<div style={{textAlign:"right"}}><div style={{fontSize:13,color:stats.totalChange<=0?C.green:"#FF5252",fontWeight:"bold"}}>{stats.totalChange<=0?"▼":"▲"} {Math.abs(stats.totalChange).toFixed(1)} kg total</div><div style={{fontSize:11,color:C.muted}}>{stats.weeklyAvg<=0?"▼":"▲"} {Math.abs(stats.weeklyAvg).toFixed(2)} kg/week</div></div>}
-          </div>
-          <WeightChart entries={entries} color={state.users[user].color}/>
-          {stats&&<div style={{display:"flex",gap:8,marginTop:14}}>
-            {[["Start",stats.first.toFixed(1)+" kg",C.muted],["Now",stats.last.toFixed(1)+" kg",stats.last<=stats.first?C.green:"#FF5252"],["Weekly",(stats.weeklyAvg>0?"+":"")+stats.weeklyAvg.toFixed(2)+" kg",stats.weeklyAvg<=0?C.green:"#FF5252"]].map(([label,val,col])=>(
-              <div key={label} style={{flex:1,background:C.surface,borderRadius:10,padding:"10px 8px",textAlign:"center"}}>
-                <div style={{fontSize:10,color:C.muted,marginBottom:4}}>{label}</div>
-                <div style={{fontSize:14,fontWeight:"bold",color:col}}>{val}</div>
-              </div>
-            ))}
-          </div>}
-        </div>;
-      })}
-
-      <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:C.muted,marginBottom:12,marginTop:8}}>Check-in History</div>
-      <div style={{display:"flex",gap:8,marginBottom:12}}>
-        {["me","partner"].map(user=><button key={user} style={pillSt(user)} onClick={()=>setActiveUser(user)}>{state.users[user].emoji} {state.users[user].name}</button>)}
-      </div>
-      {Object.entries(state.weights).filter(([k])=>k.startsWith(`${activeUser}|`)).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,14).map(([key,val])=>{
-        const date=key.split("|")[1];
-        return<div key={key} style={{...CS,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{fontSize:13,color:C.muted}}>{date}</div>
-          <div style={{display:"flex",gap:14,fontSize:13,color:C.text}}>
-            {val.weight&&<span>⚖️ {val.weight}kg</span>}
-            {val.calories&&<span style={{color:Number(val.calories)<=state.settings.calorieTarget?C.green:"#FF5252"}}>🔥 {val.calories} cal</span>}
-          </div>
-        </div>;
-      })}
-    </div>
-  );
-
-  // ── SETTINGS ──
-  const SettingsTab=()=>(
-    <div>
-      <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:C.muted,marginBottom:16}}>Users</div>
-      {["me","partner"].map(user=>(
-        <div key={user} style={{...CS,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{display:"flex",alignItems:"center",gap:12}}>
-            <div style={{fontSize:24}}>{state.users[user].emoji}</div>
-            <div><div style={{fontWeight:"bold",color:C.text}}>{state.users[user].name}</div><div style={{fontSize:12,color:C.muted}}>Tap to edit</div></div>
-          </div>
-          <button style={{...OBS,padding:"8px 14px",fontSize:12}} onClick={()=>setEditUser(user)}>Edit</button>
-        </div>
-      ))}
-      <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:C.muted,marginBottom:16,marginTop:8}}>Habits</div>
-      {state.habits.map(habit=>(
-        <div key={habit.id} style={{...CS,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{display:"flex",gap:10,alignItems:"center",flex:1,minWidth:0}}>
-            <span style={{fontSize:20,flexShrink:0}}>{habit.icon}</span>
-            <div><div style={{fontWeight:"bold",color:C.text}}>{habit.name}</div><div style={{fontSize:12,color:C.muted}}>Target: {habit.target}d/mo{habit.isSteps?" · Steps":""}</div></div>
-          </div>
-          <div style={{display:"flex",gap:6,flexShrink:0}}>
-            <button style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,color:C.muted,padding:"6px 12px",cursor:"pointer",fontSize:12,fontFamily:"Georgia,serif"}} onClick={()=>setEditHabit({...habit})}>Edit</button>
-            <button style={{color:"#FF5252",background:"none",border:"1px solid #FF525444",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:12,fontFamily:"Georgia,serif"}} onClick={()=>update(p=>({...p,habits:p.habits.filter(h=>h.id!==habit.id)}))}>✕</button>
-          </div>
-        </div>
-      ))}
-      <button style={{...BS(),width:"100%",marginTop:4}} onClick={()=>setShowAddHabit(true)}>+ Add Habit</button>
-      <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:C.muted,marginBottom:16,marginTop:16}}>Targets</div>
-      <SettingsTargets settings={state.settings} onSave={settings=>update(p=>({...p,settings:{...p.settings,...settings}}))}/>
-      <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:C.muted,marginBottom:12,marginTop:8}}>Data</div>
-      <div style={{...CS,fontSize:13,color:C.muted,lineHeight:1.6}}>💾 Data is saved locally on this device. Both phones maintain their own copy — log habits on your own phone each day.</div>
-    </div>
-  );
-
-  const tabs=[{id:"today",label:"Today",icon:"☀️"},{id:"score",label:"Score",icon:"🏆"},{id:"calendar",label:"Calendar",icon:"📅"},{id:"goals",label:"Goals",icon:"🎯"},{id:"settings",label:"Settings",icon:"⚙️"}];
-
-  return(
-    <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"Georgia,serif",maxWidth:480,margin:"0 auto",paddingBottom:80}}>
-      <div style={{background:`linear-gradient(135deg,${C.surface},#0d0d1a)`,borderBottom:`1px solid ${C.border}`,padding:"env(safe-area-inset-top,16px) 20px 12px",paddingTop:`max(env(safe-area-inset-top),16px)`,position:"sticky",top:0,zIndex:100}}>
-        <div style={{fontSize:11,letterSpacing:3,textTransform:"uppercase",color:C.muted,marginBottom:2}}>Accountability</div>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{fontSize:18,fontWeight:"bold"}}>
-            <span style={{color:u.me.color}}>{u.me.emoji} {u.me.name}</span>
-            <span style={{color:C.muted,fontSize:14}}> vs </span>
-            <span style={{color:u.partner.color}}>{u.partner.name} {u.partner.emoji}</span>
-          </div>
-          <div style={{fontSize:12}}>
-            <span style={{color:u.me.color,fontWeight:"bold"}}>{meScore}</span>
-            <span style={{color:C.muted}}> – </span>
-            <span style={{color:u.partner.color,fontWeight:"bold"}}>{partnerScore}</span>
-          </div>
-        </div>
-      </div>
-
-      <div style={{padding:"16px 16px 0"}}>
-        {tab==="today"&&todayJSX}
-        {tab==="score"&&<ScoreTab/>}
-        {tab==="calendar"&&<CalendarTab/>}
-        {tab==="goals"&&<GoalsTab/>}
-        {tab==="settings"&&<SettingsTab/>}
-      </div>
-
-      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:C.surface,borderTop:`1px solid ${C.border}`,display:"flex",zIndex:100,paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
-        {tabs.map(t=>(
-          <button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,padding:"10px 4px",background:"none",border:"none",color:tab===t.id?C.text:C.muted,fontSize:11,fontFamily:"Georgia,serif",cursor:"pointer",borderBottom:tab===t.id?`2px solid ${C.accent}`:"2px solid transparent",letterSpacing:0.5,textTransform:"uppercase"}}>
-            <div style={{fontSize:18,marginBottom:2}}>{t.icon}</div>
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {stepsModal&&<StepsModal userName={state.users[stepsModal.user].name} existingCount={getStepCount(stepsModal.user,stepsModal.date)} stepTarget={stepTarget} onSave={count=>saveSteps(stepsModal.user,stepsModal.date,count)} onClose={()=>setStepsModal(null)}/>}
-      {showAddHabit&&<HabitModal onSave={form=>update(p=>({...p,habits:[...p.habits,{id:`h${Date.now()}`,...form}]}))} onClose={()=>setShowAddHabit(false)}/>}
-      {editHabit&&<HabitModal initial={editHabit} onSave={form=>update(p=>({...p,habits:p.habits.map(h=>h.id===form.id?form:h)}))} onClose={()=>setEditHabit(null)}/>}
-      {showAddGoal&&<GoalModal onSave={form=>update(p=>({...p,goals:[...p.goals,{id:`g${Date.now()}`,...form}]}))} onClose={()=>setShowAddGoal(false)}/>}
-      {showPrize&&<PrizeModal userName={state.users[showPrize].name} onSave={text=>update(p=>({...p,prizes:{...p.prizes,[`${showPrize}|${monthKey}`]:text}}))} onClose={()=>setShowPrize(null)}/>}
-      {editUser&&<EditUserModal userData={state.users[editUser]} onSave={form=>update(p=>({...p,users:{...p.users,[editUser]:{...p.users[editUser],...form}}}))} onClose={()=>setEditUser(null)}/>}
-    </div>
-  );
+    const row=el("div","modal-row");row.style.marginTop="8px";
+    const cancel=el("button","btn-outline");cancel.style.flex="1";cancel.textContent="Cancel";cancel.onclick=closeModal;
+    const save=el("button","btn");save.style.flex="2";save.textContent=existing?"Save Changes":"Add Habit";
+    save.onclick=()=>{
+      const name=inputs.name.value.trim();if(!name)return;
+      if(existing){S.habits=S.habits.map(h=>h.id===existing.id?{...h,name,icon:inputs.icon.value,target:Number(inputs.target.value)}:h);}
+      else{S.habits.push({id:`h${Date.now()}`,name,icon:inputs.icon.value,target:Number(inputs.target.value)});}
+      window.save();closeModal();render();
+    };
+    row.appendChild(cancel);row.appendChild(save);box.appendChild(row);
+  });
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+function showGoalModal(){
+  showModal("Add Goal",box=>{
+    const nf=el("div","modal-field");nf.innerHTML="<label>Goal Name</label>";
+    const ni=el("input","field");ni.placeholder="e.g. Trip to Japan 🇯🇵";nf.appendChild(ni);box.appendChild(nf);
+    const df=el("div","modal-field");df.innerHTML="<label>Target Date</label>";
+    const di=el("input","field");di.type="date";df.appendChild(di);box.appendChild(df);
+    const row=el("div","modal-row");row.style.marginTop="8px";
+    const cancel=el("button","btn-outline");cancel.style.flex="1";cancel.textContent="Cancel";cancel.onclick=closeModal;
+    const save=el("button","btn");save.style.flex="2";save.textContent="Add Goal";
+    save.onclick=()=>{if(!ni.value.trim()||!di.value)return;S.goals.push({id:`g${Date.now()}`,name:ni.value.trim(),date:di.value});window.save();closeModal();render();};
+    row.appendChild(cancel);row.appendChild(save);box.appendChild(row);
+  });
+}
+
+function showPrizeModal(winner){
+  showModal(`🏆 Set Prize for ${S.users[winner].name}`,box=>{
+    const f=el("div","modal-field");f.innerHTML="<label>What's the prize?</label>";
+    const inp=el("input","field");inp.placeholder="e.g. Dinner at favorite restaurant 🍣";f.appendChild(inp);box.appendChild(f);
+    const row=el("div","modal-row");row.style.marginTop="8px";
+    const cancel=el("button","btn-outline");cancel.style.flex="1";cancel.textContent="Cancel";cancel.onclick=closeModal;
+    const save=el("button","btn btn-gold");save.style.flex="2";save.textContent="Set Prize 🎁";
+    save.onclick=()=>{if(!inp.value.trim())return;S.prizes[`${winner}|${monthKey(curYear,curMonth)}`]=inp.value.trim();window.save();closeModal();render();};
+    row.appendChild(cancel);row.appendChild(save);box.appendChild(row);
+    setTimeout(()=>inp.focus(),100);
+  });
+}
+
+function showEditUserModal(usr){
+  showModal(`Edit ${S.users[usr].name}`,box=>{
+    const nf=el("div","modal-field");nf.innerHTML="<label>Name</label>";
+    const ni=el("input","field");ni.value=S.users[usr].name;nf.appendChild(ni);box.appendChild(nf);
+    const ef=el("div","modal-field");ef.innerHTML="<label>Emoji</label>";
+    const ei=el("input","field");ei.value=S.users[usr].emoji;ef.appendChild(ei);box.appendChild(ef);
+    const save=el("button","btn btn-full");save.style.marginTop="8px";save.textContent="Save";
+    save.onclick=()=>{S.users[usr].name=ni.value||S.users[usr].name;S.users[usr].emoji=ei.value||S.users[usr].emoji;window.save();closeModal();render();};
+    box.appendChild(save);
+  });
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+window.save=save;
+load();
+render();
 </script>
 </body>
 </html>
