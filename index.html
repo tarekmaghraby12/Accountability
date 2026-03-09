@@ -106,10 +106,10 @@ const ROOT = db.ref("app");
 
 // ── Default state ──────────────────────────────────────────────────────────
 const DEFAULT = {
-  users:{me:{name:"Tarek",color:"#FF6B35",emoji:"💪"},partner:{name:"Wife",color:"#E91E8C",emoji:"✨"}},
+  users:{me:{name:"Tarek",color:"#FF6B35",emoji:"💪"},partner:{name:"Marissa",color:"#E91E8C",emoji:"✨"}},
   habits:[{id:"gym",name:"Gym",icon:"🏋️",target:30},{id:"steps",name:"10K Steps",icon:"👟",target:30,isSteps:true},{id:"calories",name:"Calories",icon:"🥗",target:30}],
   logs:{},stepCounts:{},weights:{},
-  goals:[{id:"g1",name:"Trip to Japan 🇯🇵",date:"2025-05-15"}],
+  goals:{me:[{id:"g1",name:"Trip to Japan 🇯🇵",date:"2025-05-15"}],partner:[]},
   prizes:{},settings:{calorieTarget:2000,stepTarget:10000}
 };
 
@@ -152,7 +152,7 @@ ROOT.on("value", snapshot => {
       logs: data.logs || {},
       stepCounts: data.stepCounts || {},
       weights: data.weights || {},
-      goals: data.goals || DEFAULT.goals,
+      goals: {me:(data.goals&&data.goals.me)||DEFAULT.goals.me, partner:(data.goals&&data.goals.partner)||DEFAULT.goals.partner},
       prizes: data.prizes || {},
       settings: {...DEFAULT.settings, ...(data.settings||{})},
     };
@@ -183,15 +183,25 @@ function monthDays(y,m){const days=[],t=daysInMonth(y,m);for(let d=1;d<=t;d++)da
 function el(tag,cls,html){const e=document.createElement(tag);if(cls)e.className=cls;if(html!==undefined)e.innerHTML=html;return e;}
 
 function getUserScore(user,y,m){
+  // 1 point per day where completed habits >= total habits (or total-1 if >3 habits)
   let score=0;
-  monthDays(y,m).forEach(day=>S.habits.forEach(h=>{if(S.logs&&S.logs[`${user}|${day}|${h.id}`])score++;}));
+  monthDays(y,m).forEach(day=>{
+    const total=S.habits.length;
+    const done=S.habits.filter(h=>S.logs&&S.logs[`${user}|${day}|${h.id}`]).length;
+    const threshold=total<=3?total:total-1;
+    if(done>=threshold&&total>0)score++;
+  });
   return score;
 }
 function getMonthPct(user,y,m){
-  const days=monthDays(y,m),total=days.length*S.habits.length;
-  if(!total)return 0;
-  const done=days.reduce((a,day)=>a+S.habits.filter(h=>S.logs&&S.logs[`${user}|${day}|${h.id}`]).length,0);
-  return(done/total)*100;
+  const days=monthDays(y,m);
+  if(!days.length||!S.habits.length)return 0;
+  const total=S.habits.length,threshold=total<=3?total:total-1;
+  const pointDays=days.filter(day=>{
+    const done=S.habits.filter(h=>S.logs&&S.logs[`${user}|${day}|${h.id}`]).length;
+    return done>=threshold;
+  }).length;
+  return(pointDays/days.length)*100;
 }
 function getStreak(user,id){
   let streak=0,d=new Date(today());
@@ -251,7 +261,7 @@ function renderContent(){
 // ── TODAY ──────────────────────────────────────────────────────────────────
 function renderToday(){
   const wrap=el("div"),t=today(),u=S.users;
-  const upcoming=S.goals?S.goals.map(g=>({...g,days:daysBetween(t,g.date)})).filter(g=>g.days>=0).sort((a,b)=>a.days-b.days)[0]:null;
+  const userGoals=(S.goals&&S.goals[activeUser])||[];const upcoming=userGoals.map(g=>({...g,days:daysBetween(t,g.date)})).filter(g=>g.days>=0).sort((a,b)=>a.days-b.days)[0];
   if(upcoming){
     const gc=el("div","card");
     gc.style.cssText="background:linear-gradient(135deg,#1a0a2e,#0d0a1e);border:1px solid #6B35FF44;text-align:center;margin-bottom:16px;";
@@ -351,7 +361,7 @@ function renderScore(){
     const uc=el("div","card");if(winner===usr)uc.style.border=`1px solid ${S.users[usr].color}66`;
     const ucolor=S.users[usr].color;const toS=Math.max(0,90-pct);
     const top=el("div","");top.style.cssText="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;";
-    top.innerHTML=`<div style="display:flex;align-items:center;gap:10px"><div style="font-size:28px">${S.users[usr].emoji}</div><div><div style="font-size:16px;font-weight:bold">${S.users[usr].name}</div><div style="font-size:12px;color:#6b6b85">Monthly completion</div></div></div><div style="text-align:right"><div style="font-size:28px;font-weight:900;color:${ucolor}">${score}</div><div style="font-size:11px;color:#6b6b85">pts</div></div>`;
+    top.innerHTML=`<div style="display:flex;align-items:center;gap:10px"><div style="font-size:28px">${S.users[usr].emoji}</div><div><div style="font-size:16px;font-weight:bold">${S.users[usr].name}</div><div style="font-size:12px;color:#6b6b85">Days completed this month</div></div></div><div style="text-align:right"><div style="font-size:28px;font-weight:900;color:${ucolor}">${score}</div><div style="font-size:11px;color:#6b6b85">days</div></div>`;
     uc.appendChild(top);
     const pb=el("div","progress-bar");const pf=el("div","progress-fill");pf.style.width=`${Math.min(pct,100)}%`;pf.style.background=pct>=90?"#00E676":ucolor;pb.appendChild(pf);uc.appendChild(pb);
     const prow=el("div","");prow.style.cssText="display:flex;justify-content:space-between;margin-top:6px;margin-bottom:12px;";
@@ -412,16 +422,29 @@ function renderCalendar(){
 // ── GOALS ──────────────────────────────────────────────────────────────────
 function renderGoals(){
   const wrap=el("div"),t=today();
-  const hdr=el("div","");hdr.style.cssText="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;";
-  hdr.innerHTML=`<div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#6b6b85">Goals & Countdown</div>`;
-  const addBtn=el("button","btn btn-sm");addBtn.textContent="+ Add Goal";addBtn.onclick=()=>showGoalModal();hdr.appendChild(addBtn);wrap.appendChild(hdr);
 
-  if(!S.goals||!S.goals.length){const eg=el("div","card");eg.style.cssText="text-align:center;color:#6b6b85;padding:32px;";eg.textContent="No goals yet. Add one! 🎯";wrap.appendChild(eg);}
-  (S.goals||[]).forEach(goal=>{
+  // User switcher
+  const pills=el("div","row");
+  ["me","partner"].forEach(usr=>{
+    const btn=el("button","pill");btn.textContent=`${S.users[usr].emoji} ${S.users[usr].name}`;
+    if(activeUser===usr)btn.classList.add(usr==="me"?"active-me":"active-partner");
+    btn.onclick=()=>{activeUser=usr;render();};pills.appendChild(btn);
+  });
+  wrap.appendChild(pills);
+
+  const userColor=S.users[activeUser].color;
+  const hdr=el("div","");hdr.style.cssText="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;";
+  hdr.innerHTML=`<div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#6b6b85">${S.users[activeUser].name}'s Goals</div>`;
+  const addBtn=el("button","btn btn-sm");addBtn.style.background=userColor;addBtn.textContent="+ Add Goal";addBtn.onclick=()=>showGoalModal(activeUser);hdr.appendChild(addBtn);wrap.appendChild(hdr);
+
+  const myGoals=(S.goals&&S.goals[activeUser])||[];
+  if(!myGoals.length){const eg=el("div","card");eg.style.cssText="text-align:center;color:#6b6b85;padding:32px;";eg.textContent="No goals yet. Add one! 🎯";wrap.appendChild(eg);}
+  myGoals.forEach(goal=>{
     const dl=daysBetween(t,goal.date),ip=dl<0;
-    const gc=el("div","card");gc.style.cssText=`background:${ip?"#16161f":"linear-gradient(135deg,#1a0a2e,#16161f)"};border:1px solid ${ip?"#252535":"#6B35FF44"};text-align:center;padding:24px;`;
-    gc.innerHTML=`<div style="font-size:22px;margin-bottom:8px">${goal.name}</div><div style="font-size:52px;font-weight:900;color:${ip?"#6b6b85":"#9B6BFF"};line-height:1">${ip?"Done!":dl}</div><div style="font-size:13px;color:#6b6b85;margin-top:4px">${ip?`Was on ${goal.date}`:`days away · ${goal.date}`}</div>`;
-    const rb=el("button","btn-outline btn-sm");rb.style.marginTop="12px";rb.textContent="Remove";rb.onclick=()=>{S.goals=S.goals.filter(g=>g.id!==goal.id);save();render();};
+    const gc=el("div","card");gc.style.cssText=`background:${ip?"#16161f":"linear-gradient(135deg,#1a0a2e,#16161f)"};border:1px solid ${ip?"#252535":userColor+"44"};text-align:center;padding:24px;`;
+    gc.innerHTML=`<div style="font-size:22px;margin-bottom:8px">${goal.name}</div><div style="font-size:52px;font-weight:900;color:${ip?"#6b6b85":userColor};line-height:1">${ip?"Done!":dl}</div><div style="font-size:13px;color:#6b6b85;margin-top:4px">${ip?`Was on ${goal.date}`:`days away · ${goal.date}`}</div>`;
+    const rb=el("button","btn-outline btn-sm");rb.style.marginTop="12px";rb.textContent="Remove";
+    rb.onclick=()=>{if(!S.goals)S.goals={me:[],partner:[]};S.goals[activeUser]=(S.goals[activeUser]||[]).filter(g=>g.id!==goal.id);save();render();};
     gc.appendChild(rb);wrap.appendChild(gc);
   });
 
@@ -561,14 +584,14 @@ function showHabitModal(existing){
   });
 }
 
-function showGoalModal(){
-  showModal("Add Goal",box=>{
-    const nf=el("div","modal-field");nf.innerHTML="<label>Goal Name</label>";const ni=el("input","field");ni.placeholder="e.g. Trip to Japan 🇯🇵";nf.appendChild(ni);box.appendChild(nf);
+function showGoalModal(usr){
+  showModal(`Add Goal for ${S.users[usr].name}`,box=>{
+    const nf=el("div","modal-field");nf.innerHTML="<label>Goal Name</label>";const ni=el("input","field");ni.placeholder="e.g. Running 5K 🏃";nf.appendChild(ni);box.appendChild(nf);
     const df=el("div","modal-field");df.innerHTML="<label>Target Date</label>";const di=el("input","field");di.type="date";df.appendChild(di);box.appendChild(df);
     const row=el("div","modal-row");row.style.marginTop="8px";
     const cancel=el("button","btn-outline");cancel.style.flex="1";cancel.textContent="Cancel";cancel.onclick=closeModal;
-    const sv=el("button","btn");sv.style.flex="2";sv.textContent="Add Goal";
-    sv.onclick=()=>{if(!ni.value.trim()||!di.value)return;if(!S.goals)S.goals=[];S.goals.push({id:`g${Date.now()}`,name:ni.value.trim(),date:di.value});save();closeModal();render();};
+    const sv=el("button","btn");sv.style.background=S.users[usr].color;sv.style.flex="2";sv.textContent="Add Goal";
+    sv.onclick=()=>{if(!ni.value.trim()||!di.value)return;if(!S.goals)S.goals={me:[],partner:[]};if(!S.goals[usr])S.goals[usr]=[];S.goals[usr].push({id:`g${Date.now()}`,name:ni.value.trim(),date:di.value});save();closeModal();render();};
     row.appendChild(cancel);row.appendChild(sv);box.appendChild(row);
   });
 }
