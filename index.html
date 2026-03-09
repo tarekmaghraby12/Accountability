@@ -89,21 +89,63 @@ input.field{background:#111118;border:1px solid #252535;border-radius:10px;color
 </div>
 <div id="modals"></div>
 
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-
 <script>
-// ── Firebase config ────────────────────────────────────────────────────────
-const firebaseConfig = {
-  apiKey: "AIzaSyBbn3JwC9P757c2ONOuqZ_9zbzNLlwGyuo",
-  databaseURL: "https://accountability-1ef9d-default-rtdb.asia-southeast1.firebasedatabase.app/",
-  projectId: "accountability-1ef9d",
-  authDomain: "accountability-1ef9d.firebaseapp.com",
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-const ROOT = db.ref("app");
+// ── Firebase REST API (no SDK needed) ─────────────────────────────────────
+const DB_URL = "https://accountability-1ef9d-default-rtdb.asia-southeast1.firebasedatabase.app/app";
+
+// Poll every 5 seconds for updates from the other phone
+let pollInterval = null;
+let lastSaveTime = 0;
+
+async function firebaseGet(){
+  const res = await fetch(`${DB_URL}.json`);
+  if(!res.ok) throw new Error("HTTP "+res.status);
+  return await res.json();
+}
+
+async function firebaseSet(data){
+  const res = await fetch(`${DB_URL}.json`, {
+    method: "PUT",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(data)
+  });
+  if(!res.ok) throw new Error("HTTP "+res.status);
+  return await res.json();
+}
+
+function startPolling(){
+  if(pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(async ()=>{
+    // Don't overwrite if we just saved within last 2 seconds
+    if(Date.now() - lastSaveTime < 2000) return;
+    try{
+      const data = await firebaseGet();
+      if(data){
+        const merged = mergeData(data);
+        // Only re-render if data actually changed
+        if(JSON.stringify(merged) !== JSON.stringify(S)){
+          S = merged;
+          try{ localStorage.setItem("acc_fallback", JSON.stringify(S)); }catch{}
+          render();
+        }
+      }
+    } catch(e){ /* silent poll failure */ }
+  }, 5000);
+}
+
+function mergeData(data){
+  return {
+    ...DEFAULT, ...data,
+    users: {...DEFAULT.users, ...(data.users||{})},
+    habits: data.habits || DEFAULT.habits,
+    logs: data.logs || {},
+    stepCounts: data.stepCounts || {},
+    weights: data.weights || {},
+    goals: {me:(data.goals&&data.goals.me)||DEFAULT.goals.me, partner:(data.goals&&data.goals.partner)||DEFAULT.goals.partner},
+    prizes: data.prizes || {},
+    settings: {...DEFAULT.settings, ...(data.settings||{})},
+  };
+}
 
 // ── Default state ──────────────────────────────────────────────────────────
 const DEFAULT = {
@@ -127,67 +169,62 @@ function setSyncStatus(status){
   dot.className = "sync-dot " + status;
 }
 
-// ── Firebase save (debounced) ──────────────────────────────────────────────
+// ── Save ──────────────────────────────────────────────────────────────────
 function save(){
   setSyncStatus("syncing");
+  lastSaveTime = Date.now();
+  try{ localStorage.setItem("acc_fallback", JSON.stringify(S)); }catch{}
   clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(()=>{
-    ROOT.set(S).then(()=>{
+  saveTimeout = setTimeout(async ()=>{
+    try{
+      await firebaseSet(S);
       setSyncStatus("synced");
-    }).catch(e=>{
-      console.error("Save failed",e);
+    } catch(e){
+      console.error("Save failed:",e);
       setSyncStatus("error");
-    });
+    }
   }, 600);
 }
 
 // ── Firebase load + live listener ─────────────────────────────────────────
-// Fallback: if Firebase doesn't respond in 8 seconds, load from localStorage
-const fallbackTimer = setTimeout(()=>{
-  if(!S){
-    console.warn("Firebase timeout — loading from localStorage");
+// ── Initial load ──────────────────────────────────────────────────────────
+(async ()=>{
+  // Try Firebase first, fall back to localStorage
+  const fallbackTimer = setTimeout(()=>{
+    if(!S){
+      setSyncStatus("error");
+      try{
+        const raw = localStorage.getItem("acc_fallback");
+        S = raw ? mergeData(JSON.parse(raw)) : JSON.parse(JSON.stringify(DEFAULT));
+      } catch { S = JSON.parse(JSON.stringify(DEFAULT)); }
+      render();
+    }
+  }, 6000);
+
+  try{
+    const data = await firebaseGet();
+    clearTimeout(fallbackTimer);
+    if(data){
+      S = mergeData(data);
+    } else {
+      S = JSON.parse(JSON.stringify(DEFAULT));
+      await firebaseSet(S);
+    }
+    try{ localStorage.setItem("acc_fallback", JSON.stringify(S)); }catch{}
+    setSyncStatus("synced");
+    render();
+    startPolling();
+  } catch(e){
+    clearTimeout(fallbackTimer);
+    console.error("Firebase load failed:", e);
     setSyncStatus("error");
     try{
       const raw = localStorage.getItem("acc_fallback");
-      S = raw ? {...DEFAULT,...JSON.parse(raw)} : JSON.parse(JSON.stringify(DEFAULT));
+      S = raw ? mergeData(JSON.parse(raw)) : JSON.parse(JSON.stringify(DEFAULT));
     } catch { S = JSON.parse(JSON.stringify(DEFAULT)); }
     render();
   }
-}, 8000);
-
-ROOT.on("value", snapshot => {
-  clearTimeout(fallbackTimer);
-  const data = snapshot.val();
-  if(data){
-    S = {
-      ...DEFAULT, ...data,
-      users: {...DEFAULT.users, ...(data.users||{})},
-      habits: data.habits || DEFAULT.habits,
-      logs: data.logs || {},
-      stepCounts: data.stepCounts || {},
-      weights: data.weights || {},
-      goals: {me:(data.goals&&data.goals.me)||DEFAULT.goals.me, partner:(data.goals&&data.goals.partner)||DEFAULT.goals.partner},
-      prizes: data.prizes || {},
-      settings: {...DEFAULT.settings, ...(data.settings||{})},
-    };
-    // Also save to localStorage as backup
-    try{ localStorage.setItem("acc_fallback", JSON.stringify(S)); }catch{}
-  } else {
-    S = JSON.parse(JSON.stringify(DEFAULT));
-    ROOT.set(S);
-  }
-  setSyncStatus("synced");
-  render();
-}, err => {
-  clearTimeout(fallbackTimer);
-  console.error("Firebase error", err);
-  setSyncStatus("error");
-  try{
-    const raw = localStorage.getItem("acc_fallback");
-    S = raw ? {...DEFAULT,...JSON.parse(raw)} : JSON.parse(JSON.stringify(DEFAULT));
-  } catch { S = JSON.parse(JSON.stringify(DEFAULT)); }
-  render();
-});
+})();
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 const TABS = [{id:"today",label:"Today",icon:"☀️"},{id:"score",label:"Score",icon:"🏆"},{id:"calendar",label:"Calendar",icon:"📅"},{id:"goals",label:"Goals",icon:"🎯"},{id:"settings",label:"Settings",icon:"⚙️"}];
