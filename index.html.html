@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Accountability"/>
+<meta name="theme-color" content="#07070d"/>
+<title>Accountability</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; background: #07070d; font-family: Georgia, serif; }
+  #root { min-height: 100vh; }
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+const STORAGE_KEY = "accountability_v3";
+
+const DEFAULT_HABITS = [
+  { id: "gym", name: "Gym", icon: "🏋️", target: 30 },
+  { id: "steps", name: "10K Steps", icon: "👟", target: 30, isSteps: true },
+  { id: "calories", name: "Calories", icon: "🥗", target: 30 },
+];
+
+const DEFAULT_STATE = {
+  users: {
+    me: { name: "Tarek", color: "#FF6B35", emoji: "💪" },
+    partner: { name: "Wife", color: "#E91E8C", emoji: "✨" },
+  },
+  habits: DEFAULT_HABITS,
+  logs: {},
+  stepCounts: {},
+  weights: {},
+  goals: [{ id: "g1", name: "Trip to Japan 🇯🇵", date: "2025-05-15" }],
+  prizes: {},
+  settings: { calorieTarget: 2000, stepTarget: 10000 },
+};
+
+const C = {
+  bg: "#07070d", surface: "#111118", card: "#16161f", border: "#252535",
+  accent: "#FF6B35", gold: "#FFD700", green: "#00E676", text: "#f0f0f5", muted: "#6b6b85",
+};
+
+function getToday() { return new Date().toISOString().split("T")[0]; }
+function getMonthKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}`;
+}
+function getDaysInMonth(y,m) { return new Date(y,m+1,0).getDate(); }
+function daysBetween(d1,d2) { return Math.ceil((new Date(d2)-new Date(d1))/86400000); }
+function getMonthDays(year,month) {
+  const days=[],total=getDaysInMonth(year,month);
+  for(let d=1;d<=total;d++) days.push(`${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`);
+  return days;
+}
+
+const IS = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, color:C.text, padding:"10px 14px", fontSize:14, fontFamily:"Georgia,serif", width:"100%", boxSizing:"border-box", outline:"none", WebkitAppearance:"none" };
+const CS = { background:C.card, border:`1px solid ${C.border}`, borderRadius:16, padding:16, marginBottom:12 };
+function BS(color=C.accent){ return { background:color, color:color===C.gold?"#000":"#fff", border:"none", borderRadius:12, padding:"12px 24px", fontSize:14, fontFamily:"Georgia,serif", cursor:"pointer", fontWeight:"bold" }; }
+const OBS = { background:"transparent", color:C.muted, border:`1px solid ${C.border}`, borderRadius:12, padding:"12px 24px", fontSize:14, fontFamily:"Georgia,serif", cursor:"pointer" };
+
+function Modal({title,children,onClose}){
+  return (
+    <div style={{position:"fixed",inset:0,background:"#000000bb",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{background:C.card,borderRadius:"24px 24px 0 0",padding:24,width:"100%",maxWidth:480,border:`1px solid ${C.border}`,borderBottom:"none",maxHeight:"85vh",overflowY:"auto"}}>
+        <div style={{fontSize:16,fontWeight:"bold",marginBottom:20,color:C.text,fontFamily:"Georgia,serif"}}>{title}</div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function WeightChart({entries,color}){
+  if(entries.length<2) return <div style={{textAlign:"center",color:C.muted,padding:"24px 0",fontSize:13}}>Log at least 2 weigh-ins to see your trend 📈</div>;
+  const W=300,H=110,PAD=14;
+  const weights=entries.map(e=>e.weight);
+  const minW=Math.min(...weights)-0.5,maxW=Math.max(...weights)+0.5;
+  const xStep=(W-PAD*2)/Math.max(entries.length-1,1);
+  const yScale=w=>PAD+((maxW-w)/(maxW-minW))*(H-PAD*2);
+  const pts=entries.map((e,i)=>({x:PAD+i*xStep,y:yScale(e.weight)}));
+  const poly=pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  const n=pts.length;
+  const sX=pts.reduce((s,_,i)=>s+i,0),sY=pts.reduce((s,p)=>s+p.y,0);
+  const sXY=pts.reduce((s,p,i)=>s+i*p.y,0),sX2=pts.reduce((s,_,i)=>s+i*i,0);
+  const den=n*sX2-sX*sX;
+  const slope=den!==0?(n*sXY-sX*sY)/den:0;
+  const intercept=(sY-slope*sX)/n;
+  const td=slope<0;
+  const gid=`wg${color.replace("#","")}`;
+  return (
+    <div>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{overflow:"visible"}}>
+        <defs><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity="0.25"/><stop offset="100%" stopColor={color} stopOpacity="0"/></linearGradient></defs>
+        <polygon points={`${pts[0].x},${H} ${poly} ${pts[pts.length-1].x},${H}`} fill={`url(#${gid})`}/>
+        <polyline points={poly} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>
+        <line x1={PAD} y1={intercept} x2={PAD+(n-1)*xStep} y2={slope*(n-1)+intercept} stroke={td?C.green:"#FF5252"} strokeWidth="1.5" strokeDasharray="4 3" opacity="0.7"/>
+        {pts.map((p,i)=><circle key={i} cx={p.x} cy={p.y} r="3.5" fill={color}/>)}
+      </svg>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:C.muted,marginTop:2}}>
+        <span>{entries[0].date.slice(5)}</span>
+        <span style={{fontSize:11,color:td?C.green:"#FF5252"}}>{td?"▼ Trending down ✓":"▲ Trending up"}</span>
+        <span>{entries[entries.length-1].date.slice(5)}</span>
+      </div>
+    </div>
+  );
+}
+
+function StepsModal({userName,existingCount,stepTarget,onSave,onClose}){
+  const [val,setVal]=useState(existingCount>0?String(existingCount):"");
+  const num=Number(val);
+  return (
+    <Modal title={`👟 Log Steps — ${userName}`} onClose={onClose}>
+      <div style={{marginBottom:8,fontSize:13,color:C.muted}}>Target: {stepTarget.toLocaleString()} steps/day</div>
+      <input style={{...IS,fontSize:24,textAlign:"center",marginBottom:12}} type="number" placeholder="e.g. 9500" value={val} onChange={e=>setVal(e.target.value)} autoFocus/>
+      {val!==""&&<div style={{textAlign:"center",marginBottom:16,fontSize:14,fontWeight:"bold",color:num>=stepTarget?C.green:"#FF9800"}}>{num>=stepTarget?`✅ ${num.toLocaleString()} steps — Goal smashed!`:`${(stepTarget-num).toLocaleString()} more steps to go`}</div>}
+      <div style={{display:"flex",gap:10}}>
+        <button style={{...OBS,flex:1}} onClick={onClose}>Cancel</button>
+        <button style={{...BS(),flex:2}} onClick={()=>{if(val!==""&&!isNaN(num)&&num>=0)onSave(num);onClose();}}>Save</button>
+      </div>
+    </Modal>
+  );
+}
+
+function HabitModal({initial,onSave,onClose}){
+  const [form,setForm]=useState(initial||{name:"",icon:"⭐",target:30});
+  return (
+    <Modal title={initial?.id?"Edit Habit":"Add New Habit"} onClose={onClose}>
+      <div style={{marginBottom:12}}><div style={{fontSize:12,color:C.muted,marginBottom:6}}>Habit Name</div><input style={IS} placeholder="e.g. Meditation" value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
+      <div style={{marginBottom:12}}><div style={{fontSize:12,color:C.muted,marginBottom:6}}>Icon (emoji)</div><input style={IS} placeholder="🧘" value={form.icon} onChange={e=>setForm(p=>({...p,icon:e.target.value}))}/></div>
+      <div style={{marginBottom:20}}><div style={{fontSize:12,color:C.muted,marginBottom:6}}>Target (days/month)</div><input style={IS} type="number" placeholder="30" value={form.target} onChange={e=>setForm(p=>({...p,target:Number(e.target.value)}))}/></div>
+      <div style={{display:"flex",gap:10}}>
+        <button style={{...OBS,flex:1}} onClick={onClose}>Cancel</button>
+        <button style={{...BS(),flex:2}} onClick={()=>{if(form.name.trim()){onSave(form);onClose();}}}>{initial?.id?"Save Changes":"Add Habit"}</button>
+      </div>
+    </Modal>
+  );
+}
+
+function GoalModal({onSave,onClose}){
+  const [form,setForm]=useState({name:"",date:""});
+  return (
+    <Modal title="Add Goal" onClose={onClose}>
+      <div style={{marginBottom:12}}><div style={{fontSize:12,color:C.muted,marginBottom:6}}>Goal Name</div><input style={IS} placeholder="e.g. Trip to Japan 🇯🇵" value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
+      <div style={{marginBottom:20}}><div style={{fontSize:12,color:C.muted,marginBottom:6}}>Target Date</div><input style={IS} type="date" value={form.date} onChange={e=>setForm(p=>({...p,date:e.target.value}))}/></div>
+      <div style={{display:"flex",gap:10}}>
+        <button style={{...OBS,flex:1}} onClick={onClose}>Cancel</button>
+        <button style={{...BS(),flex:2}} onClick={()=>{if(form.name.trim()&&form.date){onSave(form);onClose();}}}>Add Goal</button>
+      </div>
+    </Modal>
+  );
+}
+
+function PrizeModal({userName,onSave,onClose}){
+  const [text,setText]=useState("");
+  return (
+    <Modal title={`🏆 Set Prize for ${userName}`} onClose={onClose}>
+      <div style={{marginBottom:20}}><div style={{fontSize:12,color:C.muted,marginBottom:6}}>What's the prize?</div><input style={IS} placeholder="e.g. Dinner at favorite restaurant 🍣" value={text} onChange={e=>setText(e.target.value)} autoFocus/></div>
+      <div style={{display:"flex",gap:10}}>
+        <button style={{...OBS,flex:1}} onClick={onClose}>Cancel</button>
+        <button style={{...BS(C.gold),flex:2}} onClick={()=>{if(text.trim()){onSave(text);onClose();}}}>Set Prize 🎁</button>
+      </div>
+    </Modal>
+  );
+}
+
+function EditUserModal({userData,onSave,onClose}){
+  const [form,setForm]=useState({name:userData.name,emoji:userData.emoji});
+  return (
+    <Modal title={`Edit ${userData.name}`} onClose={onClose}>
+      <div style={{marginBottom:12}}><div style={{fontSize:12,color:C.muted,marginBottom:6}}>Name</div><input style={IS} value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
+      <div style={{marginBottom:20}}><div style={{fontSize:12,color:C.muted,marginBottom:6}}>Emoji</div><input style={IS} value={form.emoji} onChange={e=>setForm(p=>({...p,emoji:e.target.value}))}/></div>
+      <button style={{...BS(),width:"100%"}} onClick={()=>{onSave(form);onClose();}}>Save</button>
+    </Modal>
+  );
+}
+
+function SettingsTargets({settings,onSave}){
+  const [cal,setCal]=useState(String(settings.calorieTarget));
+  const [steps,setSteps]=useState(String(settings.stepTarget||10000));
+  return (
+    <div style={CS}>
+      <div style={{marginBottom:12}}><div style={{fontSize:12,color:C.muted,marginBottom:6}}>Daily Calorie Target</div><input style={IS} type="number" value={cal} onChange={e=>setCal(e.target.value)} onBlur={()=>onSave({calorieTarget:Number(cal),stepTarget:Number(steps)})}/></div>
+      <div><div style={{fontSize:12,color:C.muted,marginBottom:6}}>Daily Step Target</div><input style={IS} type="number" value={steps} onChange={e=>setSteps(e.target.value)} onBlur={()=>onSave({calorieTarget:Number(cal),stepTarget:Number(steps)})}/></div>
+      <div style={{marginTop:10,fontSize:11,color:C.muted}}>Changes save when you tap out of the field.</div>
+    </div>
+  );
+}
+
+function App(){
+  const [state,setState]=useState(null);
+  const [tab,setTab]=useState("today");
+  const [activeUser,setActiveUser]=useState("me");
+  const [showAddHabit,setShowAddHabit]=useState(false);
+  const [editHabit,setEditHabit]=useState(null);
+  const [showAddGoal,setShowAddGoal]=useState(false);
+  const [showPrize,setShowPrize]=useState(null);
+  const [editUser,setEditUser]=useState(null);
+  const [stepsModal,setStepsModal]=useState(null);
+  const [ciWeight,setCiWeight]=useState("");
+  const [ciCal,setCiCal]=useState("");
+  const [curMonth,setCurMonth]=useState(()=>{const n=new Date();return{year:n.getFullYear(),month:n.getMonth()};});
+
+  useEffect(()=>{
+    try{
+      const raw=localStorage.getItem(STORAGE_KEY);
+      if(raw){
+        const p=JSON.parse(raw);
+        setState({...DEFAULT_STATE,...p,users:{...DEFAULT_STATE.users,...(p.users||{})},habits:p.habits||DEFAULT_STATE.habits,stepCounts:p.stepCounts||{}});
+      } else setState(DEFAULT_STATE);
+    }catch{setState(DEFAULT_STATE);}
+  },[]);
+
+  const update=useCallback(fn=>{
+    setState(prev=>{
+      const next=fn(prev);
+      try{localStorage.setItem(STORAGE_KEY,JSON.stringify(next));}catch{}
+      return next;
+    });
+  },[]);
+
+  if(!state) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#0a0a0f",color:"#fff",fontFamily:"Georgia,serif",fontSize:18}}>Loading... ✨</div>;
+
+  const today=getToday();
+  const monthKey=getMonthKey();
+  const u=state.users;
+
+  const getLog=(user,date,id)=>!!state.logs[`${user}|${date}|${id}`];
+  const toggleLog=(user,date,id)=>update(p=>({...p,logs:{...p.logs,[`${user}|${date}|${id}`]:!p.logs[`${user}|${date}|${id}`]}}));
+  const getStepCount=(user,date)=>state.stepCounts?.[`${user}|${date}`]||0;
+  const saveSteps=(user,date,count)=>{
+    const target=state.settings.stepTarget||10000;
+    update(p=>({...p,stepCounts:{...p.stepCounts,[`${user}|${date}`]:count},logs:{...p.logs,[`${user}|${date}|steps`]:count>=target}}));
+  };
+  const getCI=(user,date)=>state.weights[`${user}|${date}`]||null;
+  const saveCI=(user,date,data)=>update(p=>({...p,weights:{...p.weights,[`${user}|${date}`]:data}}));
+  const getUserScore=(user,year,month)=>{
+    let score=0;
+    getMonthDays(year,month).forEach(day=>state.habits.forEach(h=>{if(state.logs[`${user}|${day}|${h.id}`])score++;}));
+    return score;
+  };
+  const getMonthPct=(user,year,month)=>{
+    const days=getMonthDays(year,month);
+    const total=days.length*state.habits.length;
+    const done=days.reduce((a,day)=>a+state.habits.filter(h=>state.logs[`${user}|${day}|${h.id}`]).length,0);
+    return total>0?(done/total)*100:0;
+  };
+  const getStreak=(user,id)=>{
+    let streak=0,d=new Date(today);
+    while(state.logs[`${user}|${d.toISOString().split("T")[0]}|${id}`]){streak++;d.setDate(d.getDate()-1);}
+    return streak;
+  };
+  const getWeightEntries=user=>Object.entries(state.weights)
+    .filter(([k])=>k.startsWith(`${user}|`))
+    .map(([k,v])=>({date:k.split("|")[1],weight:parseFloat(v.weight)}))
+    .filter(e=>!isNaN(e.weight))
+    .sort((a,b)=>a.date.localeCompare(b.date));
+  const getWeightStats=user=>{
+    const e=getWeightEntries(user);
+    if(e.length<2)return null;
+    const first=e[0].weight,last=e[e.length-1].weight,tc=last-first;
+    const ds=Math.max(daysBetween(e[0].date,e[e.length-1].date),1);
+    return{totalChange:tc,weeklyAvg:(tc/ds)*7,first,last,entries:e};
+  };
+
+  const meScore=getUserScore("me",curMonth.year,curMonth.month);
+  const partnerScore=getUserScore("partner",curMonth.year,curMonth.month);
+  const nextGoal=state.goals.map(g=>({...g,days:daysBetween(today,g.date)})).filter(g=>g.days>=0).sort((a,b)=>a.days-b.days)[0];
+
+  const pillSt=user=>({padding:"6px 16px",borderRadius:20,border:`1.5px solid ${activeUser===user?state.users[user].color:C.border}`,background:activeUser===user?`${state.users[user].color}22`:"transparent",color:activeUser===user?state.users[user].color:C.muted,cursor:"pointer",fontFamily:"Georgia,serif",fontSize:13,fontWeight:activeUser===user?"bold":"normal"});
+
+  const todayCI=getCI(activeUser,today);
+  const stepTarget=state.settings.stepTarget||10000;
+
+  // ── TODAY ──
+  const todayJSX=(
+    <div>
+      {nextGoal&&(
+        <div style={{background:"linear-gradient(135deg,#1a0a2e,#0d0a1e)",border:"1px solid #6B35FF44",borderRadius:20,padding:20,marginBottom:16,textAlign:"center"}}>
+          <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#9B6BFF",marginBottom:6}}>Next Goal</div>
+          <div style={{fontSize:20,fontWeight:"bold",color:C.text,marginBottom:4}}>{nextGoal.name}</div>
+          <div style={{fontSize:56,fontWeight:"900",color:"#9B6BFF",lineHeight:1,margin:"8px 0",textShadow:"0 0 30px #6B35FF88"}}>{nextGoal.days}</div>
+          <div style={{fontSize:13,color:C.muted}}>days to go · {nextGoal.date}</div>
+        </div>
+      )}
+      <div style={{display:"flex",gap:8,marginBottom:16}}>
+        <button style={pillSt("me")} onClick={()=>{setActiveUser("me");setCiWeight("");setCiCal("");}}>{u.me.emoji} {u.me.name}</button>
+        <button style={pillSt("partner")} onClick={()=>{setActiveUser("partner");setCiWeight("");setCiCal("");}}>{u.partner.emoji} {u.partner.name}</button>
+      </div>
+      <div style={CS}>
+        <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:C.muted,marginBottom:14}}>Today's Habits</div>
+        {state.habits.map(h=>{
+          const done=getLog(activeUser,today,h.id);
+          const streak=getStreak(activeUser,h.id);
+          const sc=h.isSteps?getStepCount(activeUser,today):0;
+          return(
+            <div key={h.id} style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
+              <button onClick={()=>{if(h.isSteps)setStepsModal({user:activeUser,date:today});else toggleLog(activeUser,today,h.id);}}
+                style={{width:48,height:48,borderRadius:14,border:done?`2px solid ${C.green}`:`2px solid ${C.border}`,background:done?`${C.green}22`:"transparent",color:done?C.green:C.muted,fontSize:20,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                {done?"✓":h.icon}
+              </button>
+              <div style={{flex:1}}>
+                <div style={{fontSize:15,color:done?C.green:C.text,fontWeight:done?"bold":"normal"}}>{h.name}</div>
+                {h.isSteps&&<div style={{fontSize:11,color:done?C.green:sc>0?"#FF9800":C.muted}}>{sc>0?`${sc.toLocaleString()} / ${stepTarget.toLocaleString()} steps`:"Tap to log steps"}</div>}
+                {streak>0&&<div style={{fontSize:11,color:"#FF9800"}}>🔥 {streak} day streak</div>}
+              </div>
+              {h.isSteps&&<button onClick={()=>setStepsModal({user:activeUser,date:today})} style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,color:C.muted,padding:"5px 10px",fontSize:11,cursor:"pointer",fontFamily:"Georgia,serif"}}>Log</button>}
+            </div>
+          );
+        })}
+        <button style={{...OBS,width:"100%",fontSize:12}} onClick={()=>setShowAddHabit(true)}>+ Add Habit</button>
+      </div>
+      {/* Check-in — uses top-level state so inputs never remount */}
+      <div style={CS}>
+        <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:C.muted,marginBottom:14}}>Daily Check-in</div>
+        <div style={{display:"flex",gap:10,marginBottom:12}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,color:C.muted,marginBottom:6}}>Weight (kg)</div>
+            <input style={IS} type="number" placeholder={todayCI?.weight||"80.5"} value={ciWeight} onChange={e=>setCiWeight(e.target.value)}/>
+          </div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,color:C.muted,marginBottom:6}}>Calories eaten</div>
+            <input style={IS} type="number" placeholder={todayCI?.calories||"1800"} value={ciCal} onChange={e=>setCiCal(e.target.value)}/>
+          </div>
+        </div>
+        <button style={{...BS(state.users[activeUser].color),width:"100%"}} onClick={()=>{saveCI(activeUser,today,{weight:ciWeight||todayCI?.weight||"",calories:ciCal||todayCI?.calories||""});setCiWeight("");setCiCal("");}}>Save Check-in</button>
+        {todayCI?.weight&&(
+          <div style={{marginTop:12,padding:10,background:C.surface,borderRadius:10,fontSize:13,color:C.muted}}>
+            Saved: <span style={{color:C.text}}>{todayCI.weight}kg</span> · <span style={{color:C.text}}>{todayCI.calories} cal</span>
+            {state.settings.calorieTarget&&todayCI.calories&&(
+              <span style={{color:Number(todayCI.calories)<=state.settings.calorieTarget?C.green:"#FF5252"}}>
+                {" "}{Number(todayCI.calories)<=state.settings.calorieTarget?"✓ on target":`(+${Number(todayCI.calories)-state.settings.calorieTarget} over)`}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // ── SCORE ──
+  const ScoreTab=()=>{
+    const mePct=getMonthPct("me",curMonth.year,curMonth.month);
+    const partnerPct=getMonthPct("partner",curMonth.year,curMonth.month);
+    const winner=meScore===partnerScore?null:meScore>partnerScore?"me":"partner";
+    const prize=winner?state.prizes[`${winner}|${monthKey}`]:null;
+    const months=[];
+    for(let i=5;i>=0;i--){const d=new Date();d.setMonth(d.getMonth()-i);months.push({year:d.getFullYear(),month:d.getMonth(),label:d.toLocaleString("default",{month:"short",year:"2-digit"})});}
+    return(
+      <div>
+        <div style={{display:"flex",gap:6,marginBottom:16,overflowX:"auto",paddingBottom:4}}>
+          {months.map(m=>{const active=m.year===curMonth.year&&m.month===curMonth.month;return<button key={`${m.year}-${m.month}`} onClick={()=>setCurMonth({year:m.year,month:m.month})} style={{background:active?C.accent:"transparent",border:`1px solid ${active?C.accent:C.border}`,color:active?"#fff":C.muted,borderRadius:10,padding:"6px 12px",fontSize:12,cursor:"pointer",whiteSpace:"nowrap",fontFamily:"Georgia,serif"}}>{m.label}</button>;})}
+        </div>
+        <div style={{background:winner?`linear-gradient(135deg,${state.users[winner].color}33,${C.surface})`:C.card,border:`1px solid ${winner?state.users[winner].color+"44":C.border}`,borderRadius:20,padding:20,marginBottom:16,textAlign:"center"}}>
+          {winner?(<>
+            <div style={{fontSize:32}}>🏆</div>
+            <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:C.muted,marginTop:4}}>Leading</div>
+            <div style={{fontSize:24,fontWeight:"bold",color:state.users[winner].color,marginTop:4}}>{state.users[winner].emoji} {state.users[winner].name}</div>
+            <div style={{fontSize:14,color:C.muted,marginTop:4}}>{Math.abs(meScore-partnerScore)} points ahead</div>
+            {prize?<div style={{marginTop:12,padding:"8px 14px",background:`${C.gold}22`,borderRadius:10,fontSize:13,color:C.gold}}>🎁 Prize: {prize}</div>
+              :<button style={{...OBS,marginTop:12,fontSize:12}} onClick={()=>setShowPrize(winner)}>Set Prize 🎁</button>}
+          </>):(<>
+            <div style={{fontSize:32}}>⚔️</div>
+            <div style={{fontSize:18,fontWeight:"bold",color:C.text,marginTop:8}}>It's a Tie!</div>
+            <div style={{fontSize:13,color:C.muted}}>Both at {meScore} points</div>
+          </>)}
+        </div>
+        {["me","partner"].map(user=>{
+          const pct=user==="me"?mePct:partnerPct;
+          const score=user==="me"?meScore:partnerScore;
+          const toS=Math.max(0,90-pct);
+          return(
+            <div key={user} style={{...CS,border:`1px solid ${winner===user?state.users[user].color+"66":C.border}`}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{fontSize:28}}>{state.users[user].emoji}</div>
+                  <div><div style={{fontSize:16,fontWeight:"bold",color:C.text}}>{state.users[user].name}</div><div style={{fontSize:12,color:C.muted}}>Monthly completion</div></div>
+                </div>
+                <div style={{textAlign:"right"}}><div style={{fontSize:28,fontWeight:"900",color:state.users[user].color}}>{score}</div><div style={{fontSize:11,color:C.muted}}>pts</div></div>
+              </div>
+              <div style={{background:C.surface,borderRadius:8,height:8,overflow:"hidden"}}>
+                <div style={{height:"100%",width:`${Math.min(pct,100)}%`,background:pct>=90?C.green:state.users[user].color,borderRadius:8,transition:"width 0.5s"}}/>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",marginTop:6}}>
+                <span style={{fontSize:11,color:C.muted}}>{Math.round(pct)}% complete</span>
+                <span style={{fontSize:11,color:pct>=90?C.green:C.muted}}>{pct>=90?"✅ Success!":`${Math.round(toS)}% to Success`}</span>
+              </div>
+              <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}>
+                {state.habits.map(h=>{const s=getStreak(user,h.id);return<div key={h.id} style={{background:C.surface,borderRadius:8,padding:"4px 10px",fontSize:12,color:C.text}}>{h.icon} <span style={{color:s>0?"#FF9800":C.muted}}>{s>0?`🔥${s}`:"–"}</span></div>;})}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // ── CALENDAR ──
+  const CalendarTab=()=>{
+    const days=getMonthDays(curMonth.year,curMonth.month);
+    const firstDay=new Date(curMonth.year,curMonth.month,1).getDay();
+    const mePct=getMonthPct("me",curMonth.year,curMonth.month);
+    const partnerPct=getMonthPct("partner",curMonth.year,curMonth.month);
+    return(
+      <div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+          <button style={{...OBS,padding:"8px 14px"}} onClick={()=>{const d=new Date(curMonth.year,curMonth.month-1);setCurMonth({year:d.getFullYear(),month:d.getMonth()});}}>←</button>
+          <div style={{fontWeight:"bold",fontSize:16,color:C.text}}>{new Date(curMonth.year,curMonth.month).toLocaleString("default",{month:"long",year:"numeric"})}</div>
+          <button style={{...OBS,padding:"8px 14px"}} onClick={()=>{const d=new Date(curMonth.year,curMonth.month+1);setCurMonth({year:d.getFullYear(),month:d.getMonth()});}}>→</button>
+        </div>
+        <div style={{display:"flex",gap:10,marginBottom:16}}>
+          {["me","partner"].map(user=>{const pct=user==="me"?mePct:partnerPct;const ig=pct>=90;return<div key={user} style={{flex:1,...CS,textAlign:"center",padding:12,border:`1px solid ${ig?C.green+"66":C.border}`,background:ig?`${C.green}11`:C.card,marginBottom:0}}><div style={{fontSize:20}}>{ig?"✅":"🔲"}</div><div style={{fontSize:12,fontWeight:"bold",color:C.text,marginTop:4}}>{state.users[user].name}</div><div style={{fontSize:11,color:ig?C.green:C.muted}}>{Math.round(pct)}% {ig?"✓ Success!":`(${Math.round(Math.max(0,90-pct))}% to Success)`}</div></div>;})}
+        </div>
+        <div style={CS}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:8}}>
+            {["S","M","T","W","T","F","S"].map((d,i)=><div key={i} style={{textAlign:"center",fontSize:10,color:C.muted,padding:"4px 0"}}>{d}</div>)}
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
+            {Array(firstDay).fill(null).map((_,i)=><div key={`e${i}`}/>)}
+            {days.map(day=>{
+              const ms=state.habits.filter(h=>state.logs[`me|${day}|${h.id}`]).length;
+              const ps=state.habits.filter(h=>state.logs[`partner|${day}|${h.id}`]).length;
+              const total=state.habits.length;
+              const isToday=day===today,isFuture=day>today;
+              const bf=ms===total&&ps===total&&total>0,of=(ms===total||ps===total)&&total>0;
+              return<div key={day} style={{aspectRatio:"1",borderRadius:8,background:isFuture?"transparent":bf?`${C.green}33`:of?`${C.accent}22`:C.surface,border:isToday?`1.5px solid ${C.accent}`:"1px solid transparent",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontSize:11,color:isFuture?C.border:C.text,padding:2}}>
+                <div>{parseInt(day.split("-")[2])}</div>
+                {!isFuture&&total>0&&<div style={{display:"flex",gap:1,marginTop:1}}><div style={{width:4,height:4,borderRadius:"50%",background:ms>0?u.me.color:C.border}}/><div style={{width:4,height:4,borderRadius:"50%",background:ps>0?u.partner.color:C.border}}/></div>}
+              </div>;
+            })}
+          </div>
+          <div style={{display:"flex",gap:16,marginTop:12,fontSize:11,color:C.muted}}>
+            <span><span style={{color:u.me.color}}>●</span> {u.me.name}</span>
+            <span><span style={{color:u.partner.color}}>●</span> {u.partner.name}</span>
+            <span><span style={{color:C.green}}>●</span> Both</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ── GOALS ──
+  const GoalsTab=()=>(
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:C.muted}}>Goals & Countdown</div>
+        <button style={{...BS(),padding:"8px 16px",fontSize:12}} onClick={()=>setShowAddGoal(true)}>+ Add Goal</button>
+      </div>
+      {state.goals.length===0&&<div style={{...CS,textAlign:"center",color:C.muted,padding:32}}>No goals yet. Add one! 🎯</div>}
+      {state.goals.map(goal=>{const dl=daysBetween(today,goal.date),ip=dl<0;return<div key={goal.id} style={{...CS,background:ip?C.card:`linear-gradient(135deg,#1a0a2e,${C.card})`,border:`1px solid ${ip?C.border:"#6B35FF44"}`,textAlign:"center",padding:24}}><div style={{fontSize:22,marginBottom:8}}>{goal.name}</div><div style={{fontSize:52,fontWeight:"900",color:ip?C.muted:"#9B6BFF",lineHeight:1}}>{ip?"Done!":dl}</div><div style={{fontSize:13,color:C.muted,marginTop:4}}>{ip?`Was on ${goal.date}`:`days away · ${goal.date}`}</div><button style={{...OBS,marginTop:12,fontSize:11,padding:"6px 14px"}} onClick={()=>update(p=>({...p,goals:p.goals.filter(g=>g.id!==goal.id)}))}>Remove</button></div>;})}
+
+      <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:C.muted,marginBottom:12,marginTop:8}}>Weight Trend</div>
+      {["me","partner"].map(user=>{
+        const stats=getWeightStats(user);
+        const entries=getWeightEntries(user);
+        return<div key={user} style={CS}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:20}}>{state.users[user].emoji}</span><span style={{fontWeight:"bold",fontSize:15,color:C.text}}>{state.users[user].name}</span></div>
+            {stats&&<div style={{textAlign:"right"}}><div style={{fontSize:13,color:stats.totalChange<=0?C.green:"#FF5252",fontWeight:"bold"}}>{stats.totalChange<=0?"▼":"▲"} {Math.abs(stats.totalChange).toFixed(1)} kg total</div><div style={{fontSize:11,color:C.muted}}>{stats.weeklyAvg<=0?"▼":"▲"} {Math.abs(stats.weeklyAvg).toFixed(2)} kg/week</div></div>}
+          </div>
+          <WeightChart entries={entries} color={state.users[user].color}/>
+          {stats&&<div style={{display:"flex",gap:8,marginTop:14}}>
+            {[["Start",stats.first.toFixed(1)+" kg",C.muted],["Now",stats.last.toFixed(1)+" kg",stats.last<=stats.first?C.green:"#FF5252"],["Weekly",(stats.weeklyAvg>0?"+":"")+stats.weeklyAvg.toFixed(2)+" kg",stats.weeklyAvg<=0?C.green:"#FF5252"]].map(([label,val,col])=>(
+              <div key={label} style={{flex:1,background:C.surface,borderRadius:10,padding:"10px 8px",textAlign:"center"}}>
+                <div style={{fontSize:10,color:C.muted,marginBottom:4}}>{label}</div>
+                <div style={{fontSize:14,fontWeight:"bold",color:col}}>{val}</div>
+              </div>
+            ))}
+          </div>}
+        </div>;
+      })}
+
+      <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:C.muted,marginBottom:12,marginTop:8}}>Check-in History</div>
+      <div style={{display:"flex",gap:8,marginBottom:12}}>
+        {["me","partner"].map(user=><button key={user} style={pillSt(user)} onClick={()=>setActiveUser(user)}>{state.users[user].emoji} {state.users[user].name}</button>)}
+      </div>
+      {Object.entries(state.weights).filter(([k])=>k.startsWith(`${activeUser}|`)).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,14).map(([key,val])=>{
+        const date=key.split("|")[1];
+        return<div key={key} style={{...CS,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{fontSize:13,color:C.muted}}>{date}</div>
+          <div style={{display:"flex",gap:14,fontSize:13,color:C.text}}>
+            {val.weight&&<span>⚖️ {val.weight}kg</span>}
+            {val.calories&&<span style={{color:Number(val.calories)<=state.settings.calorieTarget?C.green:"#FF5252"}}>🔥 {val.calories} cal</span>}
+          </div>
+        </div>;
+      })}
+    </div>
+  );
+
+  // ── SETTINGS ──
+  const SettingsTab=()=>(
+    <div>
+      <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:C.muted,marginBottom:16}}>Users</div>
+      {["me","partner"].map(user=>(
+        <div key={user} style={{...CS,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <div style={{fontSize:24}}>{state.users[user].emoji}</div>
+            <div><div style={{fontWeight:"bold",color:C.text}}>{state.users[user].name}</div><div style={{fontSize:12,color:C.muted}}>Tap to edit</div></div>
+          </div>
+          <button style={{...OBS,padding:"8px 14px",fontSize:12}} onClick={()=>setEditUser(user)}>Edit</button>
+        </div>
+      ))}
+      <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:C.muted,marginBottom:16,marginTop:8}}>Habits</div>
+      {state.habits.map(habit=>(
+        <div key={habit.id} style={{...CS,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{display:"flex",gap:10,alignItems:"center",flex:1,minWidth:0}}>
+            <span style={{fontSize:20,flexShrink:0}}>{habit.icon}</span>
+            <div><div style={{fontWeight:"bold",color:C.text}}>{habit.name}</div><div style={{fontSize:12,color:C.muted}}>Target: {habit.target}d/mo{habit.isSteps?" · Steps":""}</div></div>
+          </div>
+          <div style={{display:"flex",gap:6,flexShrink:0}}>
+            <button style={{background:"none",border:`1px solid ${C.border}`,borderRadius:8,color:C.muted,padding:"6px 12px",cursor:"pointer",fontSize:12,fontFamily:"Georgia,serif"}} onClick={()=>setEditHabit({...habit})}>Edit</button>
+            <button style={{color:"#FF5252",background:"none",border:"1px solid #FF525444",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:12,fontFamily:"Georgia,serif"}} onClick={()=>update(p=>({...p,habits:p.habits.filter(h=>h.id!==habit.id)}))}>✕</button>
+          </div>
+        </div>
+      ))}
+      <button style={{...BS(),width:"100%",marginTop:4}} onClick={()=>setShowAddHabit(true)}>+ Add Habit</button>
+      <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:C.muted,marginBottom:16,marginTop:16}}>Targets</div>
+      <SettingsTargets settings={state.settings} onSave={settings=>update(p=>({...p,settings:{...p.settings,...settings}}))}/>
+      <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:C.muted,marginBottom:12,marginTop:8}}>Data</div>
+      <div style={{...CS,fontSize:13,color:C.muted,lineHeight:1.6}}>💾 Data is saved locally on this device. Both phones maintain their own copy — log habits on your own phone each day.</div>
+    </div>
+  );
+
+  const tabs=[{id:"today",label:"Today",icon:"☀️"},{id:"score",label:"Score",icon:"🏆"},{id:"calendar",label:"Calendar",icon:"📅"},{id:"goals",label:"Goals",icon:"🎯"},{id:"settings",label:"Settings",icon:"⚙️"}];
+
+  return(
+    <div style={{minHeight:"100vh",background:C.bg,color:C.text,fontFamily:"Georgia,serif",maxWidth:480,margin:"0 auto",paddingBottom:80}}>
+      <div style={{background:`linear-gradient(135deg,${C.surface},#0d0d1a)`,borderBottom:`1px solid ${C.border}`,padding:"env(safe-area-inset-top,16px) 20px 12px",paddingTop:`max(env(safe-area-inset-top),16px)`,position:"sticky",top:0,zIndex:100}}>
+        <div style={{fontSize:11,letterSpacing:3,textTransform:"uppercase",color:C.muted,marginBottom:2}}>Accountability</div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{fontSize:18,fontWeight:"bold"}}>
+            <span style={{color:u.me.color}}>{u.me.emoji} {u.me.name}</span>
+            <span style={{color:C.muted,fontSize:14}}> vs </span>
+            <span style={{color:u.partner.color}}>{u.partner.name} {u.partner.emoji}</span>
+          </div>
+          <div style={{fontSize:12}}>
+            <span style={{color:u.me.color,fontWeight:"bold"}}>{meScore}</span>
+            <span style={{color:C.muted}}> – </span>
+            <span style={{color:u.partner.color,fontWeight:"bold"}}>{partnerScore}</span>
+          </div>
+        </div>
+      </div>
+
+      <div style={{padding:"16px 16px 0"}}>
+        {tab==="today"&&todayJSX}
+        {tab==="score"&&<ScoreTab/>}
+        {tab==="calendar"&&<CalendarTab/>}
+        {tab==="goals"&&<GoalsTab/>}
+        {tab==="settings"&&<SettingsTab/>}
+      </div>
+
+      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:C.surface,borderTop:`1px solid ${C.border}`,display:"flex",zIndex:100,paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
+        {tabs.map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,padding:"10px 4px",background:"none",border:"none",color:tab===t.id?C.text:C.muted,fontSize:11,fontFamily:"Georgia,serif",cursor:"pointer",borderBottom:tab===t.id?`2px solid ${C.accent}`:"2px solid transparent",letterSpacing:0.5,textTransform:"uppercase"}}>
+            <div style={{fontSize:18,marginBottom:2}}>{t.icon}</div>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {stepsModal&&<StepsModal userName={state.users[stepsModal.user].name} existingCount={getStepCount(stepsModal.user,stepsModal.date)} stepTarget={stepTarget} onSave={count=>saveSteps(stepsModal.user,stepsModal.date,count)} onClose={()=>setStepsModal(null)}/>}
+      {showAddHabit&&<HabitModal onSave={form=>update(p=>({...p,habits:[...p.habits,{id:`h${Date.now()}`,...form}]}))} onClose={()=>setShowAddHabit(false)}/>}
+      {editHabit&&<HabitModal initial={editHabit} onSave={form=>update(p=>({...p,habits:p.habits.map(h=>h.id===form.id?form:h)}))} onClose={()=>setEditHabit(null)}/>}
+      {showAddGoal&&<GoalModal onSave={form=>update(p=>({...p,goals:[...p.goals,{id:`g${Date.now()}`,...form}]}))} onClose={()=>setShowAddGoal(false)}/>}
+      {showPrize&&<PrizeModal userName={state.users[showPrize].name} onSave={text=>update(p=>({...p,prizes:{...p.prizes,[`${showPrize}|${monthKey}`]:text}}))} onClose={()=>setShowPrize(null)}/>}
+      {editUser&&<EditUserModal userData={state.users[editUser]} onSave={form=>update(p=>({...p,users:{...p.users,[editUser]:{...p.users[editUser],...form}}}))} onClose={()=>setEditUser(null)}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
