@@ -187,36 +187,7 @@ function save(){
 }
 
 // ── Firebase load + live listener ─────────────────────────────────────────
-// ── Initial load: localStorage first (instant), then Firebase in background ─
-(()=>{
-  try{
-    const raw = localStorage.getItem("acc_fallback");
-    S = raw ? mergeData(JSON.parse(raw)) : JSON.parse(JSON.stringify(DEFAULT));
-  } catch { S = JSON.parse(JSON.stringify(DEFAULT)); }
-  setSyncStatus("syncing");
-  render();
-})();
-
-// Then sync with Firebase silently in background
-(async ()=>{
-  try{
-    const data = await firebaseGet();
-    if(data){
-      S = mergeData(data);
-    } else {
-      S = JSON.parse(JSON.stringify(DEFAULT));
-      await firebaseSet(S);
-    }
-    try{ localStorage.setItem("acc_fallback", JSON.stringify(S)); }catch{}
-    setSyncStatus("synced");
-    render();
-    startPolling();
-  } catch(e){
-    console.error("Firebase load failed:", e);
-    setSyncStatus("error");
-    // Already loaded from localStorage above, just keep going
-  }
-})();
+// ── Init runs at bottom of script ──
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 const TABS = [{id:"today",label:"Today",icon:"☀️"},{id:"score",label:"Score",icon:"🏆"},{id:"calendar",label:"Calendar",icon:"📅"},{id:"goals",label:"Goals",icon:"🎯"},{id:"settings",label:"Settings",icon:"⚙️"}];
@@ -661,6 +632,36 @@ function showEditUserModal(usr){
     box.appendChild(sv);
   });
 }
+
+// ── Initial load: localStorage first (instant), then Firebase in background ─
+(()=>{
+  try{
+    const raw = localStorage.getItem("acc_fallback");
+    S = raw ? mergeData(JSON.parse(raw)) : JSON.parse(JSON.stringify(DEFAULT));
+  } catch { S = JSON.parse(JSON.stringify(DEFAULT)); }
+  setSyncStatus("syncing");
+  render();
+})();
+
+// Then sync with Firebase silently in background
+(async ()=>{
+  try{
+    const data = await firebaseGet();
+    if(data){
+      S = mergeData(data);
+    } else {
+      S = JSON.parse(JSON.stringify(DEFAULT));
+      await firebaseSet(S);
+    }
+    try{ localStorage.setItem("acc_fallback", JSON.stringify(S)); }catch{}
+    setSyncStatus("synced");
+    render();
+    startPolling();
+  } catch(e){
+    console.error("Firebase load failed:", e);
+    setSyncStatus("error");
+  }
+})();
 </script>
 </body>
 </html>
