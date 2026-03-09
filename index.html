@@ -187,23 +187,20 @@ function save(){
 }
 
 // ── Firebase load + live listener ─────────────────────────────────────────
-// ── Initial load ──────────────────────────────────────────────────────────
-(async ()=>{
-  // Try Firebase first, fall back to localStorage
-  const fallbackTimer = setTimeout(()=>{
-    if(!S){
-      setSyncStatus("error");
-      try{
-        const raw = localStorage.getItem("acc_fallback");
-        S = raw ? mergeData(JSON.parse(raw)) : JSON.parse(JSON.stringify(DEFAULT));
-      } catch { S = JSON.parse(JSON.stringify(DEFAULT)); }
-      render();
-    }
-  }, 6000);
+// ── Initial load: localStorage first (instant), then Firebase in background ─
+(()=>{
+  try{
+    const raw = localStorage.getItem("acc_fallback");
+    S = raw ? mergeData(JSON.parse(raw)) : JSON.parse(JSON.stringify(DEFAULT));
+  } catch { S = JSON.parse(JSON.stringify(DEFAULT)); }
+  setSyncStatus("syncing");
+  render();
+})();
 
+// Then sync with Firebase silently in background
+(async ()=>{
   try{
     const data = await firebaseGet();
-    clearTimeout(fallbackTimer);
     if(data){
       S = mergeData(data);
     } else {
@@ -215,14 +212,9 @@ function save(){
     render();
     startPolling();
   } catch(e){
-    clearTimeout(fallbackTimer);
     console.error("Firebase load failed:", e);
     setSyncStatus("error");
-    try{
-      const raw = localStorage.getItem("acc_fallback");
-      S = raw ? mergeData(JSON.parse(raw)) : JSON.parse(JSON.stringify(DEFAULT));
-    } catch { S = JSON.parse(JSON.stringify(DEFAULT)); }
-    render();
+    // Already loaded from localStorage above, just keep going
   }
 })();
 
